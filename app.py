@@ -1,6 +1,6 @@
 """
-CVE Intelligence Dashboard
-Select any vendor, build their vulnerability database, and analyze security trends.
+CVE Dashboard
+Professional vulnerability intelligence platform with modern UI.
 """
 
 import streamlit as st
@@ -19,79 +19,154 @@ from src.storage import Storage
 from src.vendor_scraper import VendorScraper, get_cached_vendors
 from src.cvedetails_fetcher import CVEDetailsFetcher
 
+# --- PAGE CONFIG ---
 st.set_page_config(
     page_title="CVE Dashboard", 
-    page_icon="🔒",
-    layout="wide"
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- Session State ---
-if 'building' not in st.session_state:
-    st.session_state.building = False
-if 'build_progress' not in st.session_state:
-    st.session_state.build_progress = ""
+# --- CUSTOM CSS ---
+def load_css():
+    st.markdown("""
+        <style>
+        /* Global Font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Metric Card */
+        div.metric-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            height: 100%;
+        }
+        
+        div.metric-label {
+            color: #64748B;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+        
+        div.metric-value {
+            color: #1E293B;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        div.metric-delta {
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        
+        .c-red { color: #EF4444; }
+        .c-green { color: #10B981; }
+        .c-blue { color: #3B82F6; }
+        
+        /* Chart Container */
+        div.chart-container {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Sidebar Polish */
+        section[data-testid="stSidebar"] {
+            background-color: #F8FAFC;
+            border-right: 1px solid #E2E8F0;
+        }
+        
+        /* Header Polish */
+        h1, h2, h3 {
+            color: #0F172A;
+            font-weight: 700;
+        }
+        
+        /* Table highlight */
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-# --- Database Connection ---
+load_css()
+
+# --- HELPER: Metric Card ---
+def metric_card(label, value, delta=None, color="", help_text=None):
+    delta_html = ""
+    if delta:
+        delta_color = "c-red" if "-" in delta else "c-green" # Default logic
+        if color: delta_color = color # Override
+        delta_html = f'<div class="metric-delta {delta_color}">{delta}</div>'
+        
+    html = f"""
+    <div class="metric-card">
+        <div class="metric-label" title="{help_text if help_text else ''}">{label}</div>
+        <div class="metric-value">{value}</div>
+        {delta_html}
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+# --- Session State & Database ---
+if 'building' not in st.session_state: st.session_state.building = False
+
 @st.cache_resource
 def get_storage():
     return Storage(db_path="cve_dashboard.duckdb")
 
-# --- Vendor List ---
 @st.cache_data(ttl=3600)
 def load_vendor_list():
-    """Load cached vendor list or return empty"""
     vendors = get_cached_vendors()
-    if vendors:
-        return vendors
-    return []
+    return vendors if vendors else []
 
-# --- Helper Functions ---
+# --- Logic: Build Data ---
 def build_vendor_data(vendor_id: str, vendor_name: str, update_only: bool = False):
-    """Scrape and store CVE data for a vendor"""
     storage = get_storage()
-    
-    # Get existing CVEs if updating
     existing_cves = set()
     if update_only:
         existing_cves = storage.get_existing_cve_ids(vendor_id)
-        st.info(f"Found {len(existing_cves)} existing CVEs. Checking for new ones...")
+        st.toast(f"Checking updates for {vendor_name} ({len(existing_cves)} existing)...")
     
-    # Scrape CVEs
-    with st.spinner(f"Scraping CVEs for {vendor_name}..."):
+    with st.spinner(f"Finding CVEs for {vendor_name}..."):
         scraper = VendorScraper(headless=True)
         cve_mapping = scraper.get_vendor_cves(vendor_id, vendor_name)
     
     if not cve_mapping:
-        st.error("No CVEs found for this vendor.")
+        st.error("No CVEs found.")
         return
-    
-    # Filter to new CVEs only if updating
+
     cve_ids = list(cve_mapping.keys())
     if update_only:
-        new_cves = [c for c in cve_ids if c not in existing_cves]
-        st.info(f"Found {len(new_cves)} new CVEs to fetch.")
-        cve_ids = new_cves
+        cve_ids = [c for c in cve_ids if c not in existing_cves]
+        if not cve_ids:
+            st.success("Up to date!")
+            return
     
-    if not cve_ids:
-        st.success("Database is already up to date!")
-        return
-    
-    # Fetch details from CVEDetails
     with st.spinner(f"Fetching details for {len(cve_ids)} CVEs..."):
         fetcher = CVEDetailsFetcher(headless=True)
         details = fetcher.fetch_cve_details(cve_ids)
     
-    # Store in database
-    with st.spinner("Saving to database..."):
+    with st.spinner("Saving..."):
         product_count = len(set(p for prods in cve_mapping.values() for p in prods))
-        
         for cve_id, data in details.items():
-            if "error" in data:
-                continue
-                
+            if "error" in data: continue
             record = {
-                "cve_id": cve_id,
-                "vendor_id": vendor_id,
+                "cve_id": cve_id, "vendor_id": vendor_id,
                 "published_date": data.get("published_date"),
                 "last_modified_date": data.get("last_modified"),
                 "description_en": data.get("description"),
@@ -99,395 +174,223 @@ def build_vendor_data(vendor_id: str, vendor_name: str, update_only: bool = Fals
                 "cvss_v31_base_score": data.get("cvss_v31_base_score"),
                 "cvss_v31_severity": data.get("cvss_v31_severity"),
                 "cvss_v31_vector": data.get("cvss_vector"),
-                "cvss_v4_base_score": None,
-                "cvss_v4_severity": None,
-                "cvss_v4_vector": None,
+                "cvss_v4_base_score": None, "cvss_v4_severity": None, "cvss_v4_vector": None,
                 "cwe_ids": data.get("cwe_id", ""),
                 "reference_urls": ",".join(data.get("references", [])[:5]),
                 "products": ""
             }
             storage.save_cve(record, vendor_id)
-            
-            # Add product mappings
             if cve_id in cve_mapping:
                 for prod in cve_mapping[cve_id]:
                     storage.add_product_mapping(cve_id, prod, vendor_name)
         
-        # Update metadata
         total_cves = len(storage.get_existing_cve_ids(vendor_id))
         storage.update_vendor_metadata(vendor_id, vendor_name, total_cves, product_count)
     
-    st.success(f"✅ Successfully processed {len(details)} CVEs for {vendor_name}!")
+    st.success(f"Updated {vendor_name}!")
     st.cache_data.clear()
 
-# --- Main App ---
-st.title("CVE  Dashboard")
-st.caption("Select any vendor, build their vulnerability database, and analyze security trends.")
-
-# --- Sidebar: Company Selection ---
-st.sidebar.header("📊 Data Management")
-
-# Load vendors
-vendors = load_vendor_list()
-storage = get_storage()
-fetched_vendors_df = storage.get_fetched_vendors()
-
-# Show fetched vendors first
-st.sidebar.subheader("Your Companies")
-if not fetched_vendors_df.empty:
-    for _, row in fetched_vendors_df.iterrows():
-        col1, col2 = st.sidebar.columns([3, 1])
-        col1.write(f"**{row['vendor_name']}** ({row['cve_count']} CVEs)")
-        if col2.button("↻", key=f"update_{row['vendor_id']}", help="Update"):
-            build_vendor_data(row['vendor_id'], row['vendor_name'], update_only=True)
-            st.rerun()
-else:
-    st.sidebar.info("No companies fetched yet. Add one below!")
-
-st.sidebar.divider()
-
-# Add new vendor
-st.sidebar.subheader("Add New Company")
-
-if vendors:
-    vendor_names = [v["name"] for v in vendors]
-    selected_vendor_name = st.sidebar.selectbox(
-        "Select Vendor",
-        options=[""] + vendor_names,
-        help="Search for any vendor from CVEDetails.com"
-    )
+# --- SIDEBAR ---
+with st.sidebar:
+    st.title("🛡️ CVE Watch")
+    st.markdown("---")
     
-    if selected_vendor_name:
-        selected_vendor = next((v for v in vendors if v["name"] == selected_vendor_name), None)
+    # 1. Select Vendor
+    st.subheader("Dashboard")
+    vendors = load_vendor_list()
+    storage = get_storage()
+    fetched_vendors_df = storage.get_fetched_vendors()
+    
+    selected_vendor_name = None
+    if not fetched_vendors_df.empty:
+        selected_vendor_name = st.selectbox(
+            "Select Company",
+            options=fetched_vendors_df['vendor_name'].tolist(),
+            key="dashboard_vendor"
+        )
         
-        if selected_vendor:
-            vendor_id = selected_vendor["id"]
-            
-            # Check if already fetched
-            already_fetched = vendor_id in fetched_vendors_df['vendor_id'].values if not fetched_vendors_df.empty else False
-            
-            if already_fetched:
-                st.sidebar.warning(f"{selected_vendor_name} already in database.")
-            else:
-                if st.sidebar.button(f"🔨 Build {selected_vendor_name}", type="primary"):
-                    build_vendor_data(vendor_id, selected_vendor_name)
-                    st.rerun()
-else:
-    st.sidebar.warning("Vendor list not loaded. Click below to fetch.")
-    if st.sidebar.button("📥 Fetch Vendor List"):
-        with st.spinner("Fetching vendors A-Z (this takes a few minutes)..."):
-            scraper = VendorScraper(headless=True)
-            scraper.get_all_vendors(force_refresh=True)
-        st.cache_data.clear()
-        st.rerun()
+        # Update Button
+        row = fetched_vendors_df[fetched_vendors_df['vendor_name'] == selected_vendor_name].iloc[0]
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("↻", help="Update Data"):
+                build_vendor_data(row['vendor_id'], row['vendor_name'], update_only=True)
+                st.rerun()
+        with col2:
+            st.caption(f"Last updated: {pd.to_datetime(row['last_updated']).strftime('%Y-%m-%d')}")
+    else:
+        st.info("No data yet. Determine a vendor below.")
 
-# --- Main Dashboard ---
-if fetched_vendors_df.empty:
-    st.info("👋 Welcome! Select a company from the sidebar and click **Build** to get started.")
+    st.markdown("---")
+    
+    # 2. Add New
+    with st.expander("Add New Company"):
+        if vendors:
+            vendor_opts = [v["name"] for v in vendors]
+            new_vendor = st.selectbox("Find Vendor", [""] + vendor_opts)
+            if new_vendor:
+                v_data = next((v for v in vendors if v["name"] == new_vendor), None)
+                if st.button(f"Build {new_vendor}", type="primary", use_container_width=True):
+                    build_vendor_data(v_data["id"], new_vendor)
+                    st.rerun()
+        else:
+            if st.button("Fetch Vendor List (A-Z)"):
+                with st.spinner("Fetching..."):
+                    VendorScraper(headless=True).get_all_vendors(force_refresh=True)
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("*v2.0 • [GitHub](https://github.com/pwnarch/insidecve)*")
+
+# --- MAIN CONTENT ---
+if not selected_vendor_name:
+    st.title("Welcome to CVE Watch")
+    st.markdown("""
+    ### Getting Started
+    1. Look for a company in the **Sidebar** > **Add New Company**
+    2. Click **Build** to generate their security profile
+    3. Analyze trends, severity, and critical vulnerabilities
+    """)
     st.stop()
 
-# Vendor selector for dashboard
-st.sidebar.divider()
-st.sidebar.subheader("📈 View Dashboard")
-dashboard_vendor = st.sidebar.selectbox(
-    "Select Company to View",
-    options=fetched_vendors_df['vendor_name'].tolist(),
-    key="dashboard_vendor"
-)
+# Load Data
+current_vendor_id = fetched_vendors_df[fetched_vendors_df['vendor_name'] == selected_vendor_name].iloc[0]['vendor_id']
 
-# Get vendor ID
-vendor_row = fetched_vendors_df[fetched_vendors_df['vendor_name'] == dashboard_vendor].iloc[0]
-current_vendor_id = vendor_row['vendor_id']
-
-# Load data for selected vendor
 @st.cache_data
-def load_vendor_data(vendor_id):
-    storage = get_storage()
-    df = storage.get_cves_by_vendor(vendor_id)
-    products = storage.con.execute("""
-        SELECT * FROM products WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)
-    """, (vendor_id,)).fetchdf()
-    cwes = storage.con.execute("""
-        SELECT * FROM weaknesses WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)
-    """, (vendor_id,)).fetchdf()
-    return df, products, cwes
+def load_data(vid):
+    s = get_storage()
+    cves = s.get_cves_by_vendor(vid)
+    prods = s.con.execute("SELECT * FROM products WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
+    cwes = s.con.execute("SELECT * FROM weaknesses WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
+    return cves, prods, cwes
 
 try:
-    df_cves, df_products, df_cwes = load_vendor_data(current_vendor_id)
+    df_cves, df_products, df_cwes = load_data(current_vendor_id)
 except Exception as e:
-    st.error(f"Error loading data: {e}")
+    st.error(f"Data load error: {e}")
     st.stop()
 
-if df_cves.empty:
-    st.warning(f"No CVE data found for {dashboard_vendor}. Try updating.")
-    st.stop()
+# FILTERS
+st.write("") # Spacer
+c1, c2, c3 = st.columns([3, 1, 1])
+with c1:
+    st.title(f"{selected_vendor_name} Intelligence")
+with c2:
+    min_d = pd.to_datetime(df_cves['published_date']).min()
+    max_d = pd.to_datetime(df_cves['published_date']).max()
+    if pd.isnull(min_d): min_d = datetime(2000,1,1)
+    if pd.isnull(max_d): max_d = datetime.now()
+    dates = st.date_input("Filter Date", [min_d, max_d])
 
-# --- Filters ---
-st.sidebar.divider()
-st.sidebar.header("🔍 Filters")
+# Apply Filter
+mask = (pd.to_datetime(df_cves['published_date']) >= pd.to_datetime(dates[0])) & \
+       (pd.to_datetime(df_cves['published_date']) <= pd.to_datetime(dates[1]))
+fdf = df_cves[mask]
 
-# Date Range
-min_date = pd.to_datetime(df_cves['published_date']).min()
-max_date = pd.to_datetime(df_cves['published_date']).max()
-if pd.isnull(min_date): min_date = datetime(2000,1,1)
-if pd.isnull(max_date): max_date = datetime.now()
+# --- KPI ROW ---
+col1, col2, col3, col4 = st.columns(4)
 
-date_range = st.sidebar.date_input("Date Range", value=(min_date, max_date))
+with col1:
+    metric_card("Total CVEs", len(fdf), f"+{len(fdf[pd.to_datetime(fdf['published_date']) > datetime.now()-timedelta(days=30)])} this month")
 
-# Severity
-severities = df_cves['cvss_v31_severity'].dropna().unique().tolist()
-selected_severity = st.sidebar.multiselect("Severity", severities, default=severities)
+with col2:
+    crit = len(fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
+    pct = (crit/len(fdf)*100) if len(fdf) > 0 else 0
+    metric_card("Critical & High", crit, f"{pct:.1f}% of total", "c-red")
 
-# Apply filters
-mask = (pd.to_datetime(df_cves['published_date']) >= pd.to_datetime(date_range[0])) & \
-       (pd.to_datetime(df_cves['published_date']) <= pd.to_datetime(date_range[1]))
-filtered_df = df_cves[mask]
+with col3:
+    avg = fdf['cvss_v31_base_score'].mean()
+    metric_card("Avg CVSS Score", f"{avg:.1f}", "Base Score v3.1", "c-blue")
 
-if selected_severity:
-    filtered_df = filtered_df[filtered_df['cvss_v31_severity'].isin(selected_severity)]
+with col4:
+    prods = df_products[df_products['cve_id'].isin(fdf['cve_id'])]['product'].nunique()
+    metric_card("Impacted Products", prods, "Total Unique")
 
-# --- KPIs ---
-st.header(f"📊 {dashboard_vendor} Security Overview")
+# --- CHARTS ---
+st.write("")
+tabs = st.tabs(["📊 Analytics", "📋 Vulnerabilities", "🚨 Critical List"])
 
-# Row 1
-col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Total CVEs", len(filtered_df))
-
-avg_score = filtered_df['cvss_v31_base_score'].mean()
-col2.metric("Avg CVSS", f"{avg_score:.1f}" if not pd.isna(avg_score) else "N/A")
-
-critical_count = len(filtered_df[filtered_df['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
-col3.metric("Critical/High", critical_count)
-
-ninety_days_ago = datetime.now() - timedelta(days=90)
-recent = len(filtered_df[pd.to_datetime(filtered_df['published_date']) >= ninety_days_ago])
-col4.metric("Last 90 Days", recent)
-
-products_count = df_products['product'].nunique()
-col5.metric("Products", products_count)
-
-# Row 2
-col6, col7, col8, col9, col10 = st.columns(5)
-cwe_count = df_cwes['cwe_id'].nunique()
-col6.metric("Unique CWEs", cwe_count)
-
-max_score = filtered_df['cvss_v31_base_score'].max()
-col7.metric("Max Score", f"{max_score:.1f}" if not pd.isna(max_score) else "N/A")
-
-if not filtered_df.empty:
-    filtered_df = filtered_df.copy()
-    filtered_df['published_date'] = pd.to_datetime(filtered_df['published_date'])
-    filtered_df['year'] = filtered_df['published_date'].dt.year
-    year_range = f"{filtered_df['year'].min()}-{filtered_df['year'].max()}"
-else:
-    year_range = "N/A"
-col8.metric("Year Range", year_range)
-
-low_count = len(filtered_df[filtered_df['cvss_v31_severity'].isin(['LOW', 'MEDIUM'])])
-col9.metric("Low/Medium", low_count)
-
-# Top CWE
-if not df_cwes.empty:
-    top_cwe = df_cwes['cwe_id'].value_counts().head(1)
-    col10.metric("Top CWE", top_cwe.index[0] if len(top_cwe) > 0 else "N/A")
-else:
-    col10.metric("Top CWE", "N/A")
-
-# --- Vulnerability Classification ---
-def classify_vuln(row):
-    desc = str(row.get('description_en', '')).lower()
-    cwe_list = df_cwes[df_cwes['cve_id'] == row['cve_id']]['cwe_id'].tolist()
-    cwes = ' '.join(cwe_list)
-    
-    if 'CWE-89' in cwes or 'sql injection' in desc: return 'SQL Injection'
-    if 'CWE-79' in cwes or 'cross-site scripting' in desc or 'xss' in desc: return 'XSS'
-    if any(c in cwes for c in ['CWE-78', 'CWE-77', 'CWE-94']) or 'code execution' in desc or 'command injection' in desc: return 'Code Execution'
-    if any(c in cwes for c in ['CWE-119', 'CWE-120', 'CWE-787', 'CWE-416']) or 'overflow' in desc or 'memory' in desc: return 'Memory/Overflow'
-    if 'CWE-22' in cwes or 'traversal' in desc or 'path' in desc: return 'Path Traversal'
-    if 'CWE-287' in cwes or 'CWE-269' in cwes or 'authentication' in desc or 'privilege' in desc: return 'Auth/Privilege'
-    if 'CWE-200' in cwes or 'information disclosure' in desc or 'sensitive' in desc: return 'Info Disclosure'
-    if 'CWE-352' in cwes or 'csrf' in desc: return 'CSRF'
-    if 'CWE-611' in cwes or 'xxe' in desc: return 'XXE'
-    if 'CWE-502' in cwes or 'deserialization' in desc: return 'Deserialization'
-    return 'Other'
-
-if not filtered_df.empty:
-    filtered_df['vuln_type'] = filtered_df.apply(classify_vuln, axis=1)
-    
-    # OWASP Mapping
-    owasp_map = {
-        'SQL Injection': 'A03:2021 - Injection',
-        'XSS': 'A03:2021 - Injection',
-        'Code Execution': 'A03:2021 - Injection',
-        'Path Traversal': 'A01:2021 - Broken Access Control',
-        'Auth/Privilege': 'A01:2021 - Broken Access Control',
-        'Info Disclosure': 'A02:2021 - Cryptographic Failures',
-        'CSRF': 'A01:2021 - Broken Access Control',
-        'XXE': 'A05:2021 - Security Misconfiguration',
-        'Deserialization': 'A08:2021 - Integrity Failures',
-        'Memory/Overflow': 'A06:2021 - Vulnerable Components',
-        'Other': 'Other'
-    }
-    filtered_df['owasp_category'] = filtered_df['vuln_type'].map(owasp_map)
-
-# --- Charts ---
-st.subheader("📈 Trends & Distribution")
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Timeline", "Severity", "Products", "CWEs", "OWASP", "Vuln Types"])
-
-with tab1:
-    if not filtered_df.empty:
-        ts_df = filtered_df.set_index('published_date').resample('ME').size().reset_index(name='count')
-        fig = px.bar(ts_df, x='published_date', y='count', title="CVEs Published Over Time",
-                     color_discrete_sequence=['#1f77b4'])
+with tabs[0]:
+    # Row 1: Timeline & Severity
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Vulnerability Timeline")
+        fdf['published_date'] = pd.to_datetime(fdf['published_date'])
+        ts = fdf.set_index('published_date').resample('M').size().reset_index(name='count')
+        fig = px.bar(ts, x='published_date', y='count', color_discrete_sequence=['#3B82F6'])
+        fig.update_layout(xaxis_title="", yaxis_title="New CVEs", showlegend=False, margin=dict(l=0,r=0,t=0,b=0), height=300)
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Yearly trend
-        yearly = filtered_df.groupby('year').size().reset_index(name='count')
-        fig2 = px.line(yearly, x='year', y='count', title="Yearly Trend", markers=True)
-        st.plotly_chart(fig2, use_container_width=True)
-
-with tab2:
-    if not filtered_df.empty:
-        col_a, col_b = st.columns(2)
-        with col_a:
-            sev_counts = filtered_df['cvss_v31_severity'].value_counts().reset_index()
-            colors = {'CRITICAL': '#d62728', 'HIGH': '#ff7f0e', 'MEDIUM': '#ffbb78', 'LOW': '#2ca02c'}
-            fig = px.pie(sev_counts, values='count', names='cvss_v31_severity', 
-                        title="Severity Distribution", hole=0.4,
-                        color='cvss_v31_severity', color_discrete_map=colors)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col_b:
-            # Severity over time
-            sev_time = filtered_df.groupby([filtered_df['year'], 'cvss_v31_severity']).size().reset_index(name='count')
-            fig = px.bar(sev_time, x='year', y='count', color='cvss_v31_severity',
-                        title="Severity by Year", barmode='stack',
-                        color_discrete_map=colors)
-            st.plotly_chart(fig, use_container_width=True)
-
-with tab3:
-    if not df_products.empty:
-        current_cves = filtered_df['cve_id'].unique()
-        current_products = df_products[df_products['cve_id'].isin(current_cves)]
-        top_prods = current_products['product'].value_counts().head(10).reset_index()
-        fig = px.bar(top_prods, x='count', y='product', title="Top 10 Affected Products", 
-                     orientation='h', color='count', color_continuous_scale='Blues')
-        fig.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with c2:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Severity Breakdown")
+        sev = fdf['cvss_v31_severity'].value_counts()
+        colors = {'CRITICAL': '#EF4444', 'HIGH': '#F97316', 'MEDIUM': '#F59E0B', 'LOW': '#10B981'}
+        fig = px.donut(values=sev.values, names=sev.index, color=sev.index, color_discrete_map=colors, hole=0.6)
+        fig.update_layout(showlegend=False, margin=dict(l=0,r=0,t=0,b=0), height=300)
         st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-with tab4:
-    if not df_cwes.empty:
-        current_cves = filtered_df['cve_id'].unique()
-        current_cwes = df_cwes[df_cwes['cve_id'].isin(current_cves)]
-        top_cwes = current_cwes['cwe_id'].value_counts().head(10).reset_index()
-        
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fig = px.bar(top_cwes, x='count', y='cwe_id', title="Top 10 CWE Weaknesses",
-                        orientation='h', color='count', color_continuous_scale='Reds')
-            fig.update_layout(yaxis={'categoryorder':'total ascending'})
+    # Row 2: Heatmap & Products
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Top Weaknesses (CWE)")
+        if not df_cwes.empty:
+            cwes = df_cwes[df_cwes['cve_id'].isin(fdf['cve_id'])]['cwe_id'].value_counts().head(8)
+            fig = px.bar(x=cwes.values, y=cwes.index, orientation='h', color=cwes.values, color_continuous_scale='Reds')
+            fig.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Count", yaxis_title="", margin=dict(l=0,r=0,t=0,b=0), height=300, coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
-        
-        with col_b:
-            # CWE descriptions
-            st.markdown("### CWE Reference")
-            cwe_desc = {
-                "CWE-79": "Cross-site Scripting (XSS)",
-                "CWE-89": "SQL Injection",
-                "CWE-22": "Path Traversal",
-                "CWE-78": "OS Command Injection",
-                "CWE-287": "Improper Authentication",
-                "CWE-269": "Improper Privilege Management",
-                "CWE-200": "Information Exposure",
-                "CWE-352": "Cross-Site Request Forgery",
-                "CWE-502": "Deserialization of Untrusted Data",
-                "CWE-20": "Improper Input Validation",
-                "CWE-94": "Code Injection",
-                "CWE-119": "Buffer Overflow",
-                "CWE-787": "Out-of-bounds Write",
-            }
-            for cwe in top_cwes['cwe_id'].head(8):
-                desc = cwe_desc.get(cwe, "See MITRE CWE database")
-                st.write(f"**{cwe}**: {desc}")
-    else:
-        st.info("No CWE data available")
+        else: st.info("No CWE data")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-with tab5:
-    if not filtered_df.empty and 'owasp_category' in filtered_df.columns:
-        owasp_counts = filtered_df['owasp_category'].value_counts().reset_index()
-        
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fig = px.pie(owasp_counts, values='count', names='owasp_category',
-                        title="OWASP Top 10 (2021) Distribution", hole=0.3)
+    with c2:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Most Affected Products")
+        if not df_products.empty:
+            prods = df_products[df_products['cve_id'].isin(fdf['cve_id'])]['product'].value_counts().head(8)
+            fig = px.bar(x=prods.values, y=prods.index, orientation='h', color=prods.values, color_continuous_scale='Blues')
+            fig.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Count", yaxis_title="", margin=dict(l=0,r=0,t=0,b=0), height=300, coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
-        
-        with col_b:
-            fig = px.bar(owasp_counts, x='count', y='owasp_category', orientation='h',
-                        title="OWASP Categories Breakdown", color='count',
-                        color_continuous_scale='Oranges')
-            fig.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Classification data not available")
+        else: st.info("No product data")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-with tab6:
-    if not filtered_df.empty and 'vuln_type' in filtered_df.columns:
-        type_counts = filtered_df['vuln_type'].value_counts().reset_index()
-        
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fig = px.pie(type_counts, values='count', names='vuln_type',
-                        title="Vulnerability Type Distribution", hole=0.4)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col_b:
-            # Type vs Year heatmap
-            type_year = filtered_df.groupby(['year', 'vuln_type']).size().reset_index(name='count')
-            pivot = type_year.pivot(index='vuln_type', columns='year', values='count').fillna(0)
-            fig = px.imshow(pivot, title="Vulnerability Types Over Years",
-                           labels=dict(x="Year", y="Type", color="Count"),
-                           aspect='auto', color_continuous_scale='RdYlGn_r')
-            st.plotly_chart(fig, use_container_width=True)
-
-# --- Critical CVEs Section ---
-st.subheader("� Critical & High Severity")
-critical_df = filtered_df[filtered_df['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])].sort_values(
-    'cvss_v31_base_score', ascending=False
-)
-
-if not critical_df.empty:
-    st.warning(f"**{len(critical_df)}** vulnerabilities require immediate attention!")
-    display_cols = ['cve_id', 'cvss_v31_severity', 'cvss_v31_base_score', 'vuln_type', 'description_en']
-    cols_available = [c for c in display_cols if c in critical_df.columns]
+with tabs[1]:
+    st.subheader("Full Vulnerability List")
+    cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en']
     st.dataframe(
-        critical_df[cols_available].head(15),
+        fdf[cols].sort_values('published_date', ascending=False),
         use_container_width=True,
         column_config={
-            "cvss_v31_base_score": st.column_config.NumberColumn("Score", format="%.1f"),
+            "cve_id": "ID",
+            "published_date": st.column_config.DateColumn("Published"),
+            "cvss_v31_severity": "Severity",
+            "cvss_v31_base_score": st.column_config.NumberColumn("CVSS", format="%.1f"),
             "description_en": st.column_config.TextColumn("Description", width="large")
-        }
+        },
+        height=600
     )
-else:
-    st.success("No critical or high severity CVEs in current filter!")
 
-# --- Data Table ---
-st.subheader("📋 All Vulnerabilities")
-display_cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en']
-if 'vuln_type' in filtered_df.columns:
-    display_cols.insert(4, 'vuln_type')
-
-st.dataframe(
-    filtered_df[display_cols].sort_values('cvss_v31_base_score', ascending=False),
-    use_container_width=True,
-    column_config={
-        "cve_id": st.column_config.TextColumn("CVE ID"),
-        "published_date": st.column_config.DateColumn("Published"),
-        "cvss_v31_base_score": st.column_config.NumberColumn("Score", format="%.1f"),
-        "description_en": st.column_config.TextColumn("Description", width="large")
-    }
-)
-
-# --- Export ---
-csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-st.download_button("📥 Download CSV", csv_data, f"{dashboard_vendor.lower()}_cves.csv", "text/csv")
+with tabs[2]:
+    st.subheader("🚨 Priority Action List")
+    crit = fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])].sort_values('cvss_v31_base_score', ascending=False)
+    if not crit.empty:
+        for idx, row in crit.head(10).iterrows():
+            with st.container():
+                c1, c2 = st.columns([1, 10])
+                with c1:
+                    score = row['cvss_v31_base_score']
+                    color = "#EF4444" if score >= 9.0 else "#F97316"
+                    st.markdown(f"""
+                    <div style="background-color:{color}; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
+                        {score}
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"**{row['cve_id']}** • {row['published_date'].strftime('%Y-%m-%d')}")
+                    st.caption(row['description_en'])
+                st.divider()
+    else:
+        st.success("No critical vulnerabilities found!")
