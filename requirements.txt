@@ -1,0 +1,9 @@
+requests
+duckdb
+pandas
+streamlit
+playwright
+pyarrow
+plotly
+beautifulsoup4
+pytest
