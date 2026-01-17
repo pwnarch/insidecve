@@ -9,10 +9,10 @@ venv/
 
 # Cache and data files
 cache/
-*.duckdb
+solarwinds_cves.duckdb
 *.duckdb.wal
 *.parquet
-*.csv
+# Keep cve_dashboard.duckdb for deployment!
 
 # Logs
 *.log

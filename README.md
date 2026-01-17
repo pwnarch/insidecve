@@ -1,52 +1,94 @@
-# SolarWinds CVE Pipeline and Dashboard
+# CVE  Dashboard
 
-This project provides a robust pipeline to fetch, analyze, and visualize SolarWinds-related CVEs.
+Open-source vulnerability intelligence platform. Select any vendor from CVEDetails.com, build their CVE database, and analyze security trends with interactive dashboards.
 
 ## Features
-- **Data Collection**: Fetches from Official CVE List V5 and NVD API 2.0.
-- **Enrichment**: Normalizes CVSS scores, weaknesses (CWE), and product information.
-- **Storage**: Uses DuckDB for high-performance analytics and supports Parquet/CSV exports.
-- **Visualization**: Interactive Streamlit dashboard for trends and insights.
 
-## Installation
+- **Multi-Vendor Support**: Browse and select from thousands of vendors (A-Z)
+- **On-Demand Data**: Only fetch data when you click "Build" - no automatic scraping
+- **Update Button**: Refresh existing vendors to get only new CVEs
+- **Interactive Dashboard**: Filter by date, severity, products
+- **Visualizations**: Timeline, severity distribution, top products
+- **Export**: Download filtered data as CSV
+
+## Quick Start
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+# Install dependencies
 pip install -r requirements.txt
+
+# Install Playwright browsers
 playwright install chromium
+
+# Run the dashboard
+streamlit run app.py
 ```
 
 ## Usage
 
-### 1. Update Data
-Run the pipeline to fetch and update CVE data.
-```bash
-python pipeline.py
-```
-Options:
-- `--input [file]`: Path to CVE ID list (default: `solarwinds_cve_ids.txt`)
-- `--scrape`: Enable "best effort" scraping of CVEDetails to find product mappings.
-- `--nvd-key [key]`: NVD API Key (increases rate limit).
-- `--db [path]`: Database path (default: `solarwinds_cves.duckdb`).
+1. **First Run**: Click "Fetch Vendor List" to load all vendors from CVEDetails.com
+2. **Add a Company**: Select a vendor from the dropdown, click "Build"
+3. **View Dashboard**: Select a company from "Your Companies" to see analytics
+4. **Update Data**: Click the refresh button (↻) next to any company to fetch new CVEs
 
-### 2. View Dashboard
-Launch the dashboard to explore the data.
-```bash
-streamlit run app.py
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│          Streamlit Dashboard            │
+├─────────────────────────────────────────┤
+│  [Select Vendor ▼] [Build] [Update ↻]   │
+├─────────────────────────────────────────┤
+│  KPIs | Charts | Data Table | Export    │
+└─────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────┐
+│           DuckDB Storage                │
+│  - cves (with vendor_id)                │
+│  - products                             │
+│  - weaknesses                           │
+│  - vendor_metadata                      │
+└─────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────┐
+│         CVEDetails.com Scraper          │
+│  - Vendor A-Z discovery                 │
+│  - Product list per vendor              │
+│  - CVE details per product              │
+└─────────────────────────────────────────┘
 ```
 
 ## Project Structure
-- `pipeline.py`: Main data ingestion script.
-- `app.py`: Analytics dashboard.
-- `src/`: Source modules.
-    - `data_fetcher.py`: API interactions (NVD/V5).
-    - `normalizer.py`: Data cleaning.
-    - `storage.py`: DuckDB and file operations.
-    - `scraper.py`: Playwright scraper.
-- `cache/`: Local cache for API responses.
 
-## Troubleshooting
-- **Rate Limits**: If NVD fetches are slow/failing 403, obtain an API key and pass it via `--nvd-key`.
-- **Scraping Errors**: Scraping depends on `cvedetails.com` structure. If it fails, the pipeline will continue with NVD data only.
-- **Dependencies**: Ensure you are in the virtual environment.
+```
+├── app.py                    # Streamlit dashboard
+├── src/
+│   ├── vendor_scraper.py     # A-Z vendor discovery & CVE scraping
+│   ├── cvedetails_fetcher.py # CVE detail extraction
+│   ├── storage.py            # DuckDB database layer
+│   ├── data_fetcher.py       # NVD/V5 API fetchers (optional)
+│   └── normalizer.py         # Data normalization
+├── cache/
+│   └── vendors.json          # Cached vendor list
+├── requirements.txt
+└── README.md
+```
+
+## Requirements
+
+- Python 3.10+
+- Playwright (for web scraping)
+- Streamlit (for dashboard)
+- DuckDB (for storage)
+- Plotly (for charts)
+
+## Data Sources
+
+- **CVEDetails.com**: Vendor/product/CVE mapping, CVSS scores, CWE IDs
+- **NVD API** (optional): Official vulnerability data
+
+## License
+
+MIT
