@@ -232,6 +232,21 @@ def classify_vuln(row, df_cwes):
     if 'CWE-352' in cwes_str or 'csrf' in desc: return 'CSRF'
     return 'Other'
 
+# --- Logic: OWASP Mapping ---
+def get_owasp_category(vuln_type):
+    mapping = {
+        'SQL Injection': 'A03:2021-Injection',
+        'RCE': 'A03:2021-Injection', # Often injection
+        'XSS': 'A03:2021-Injection', # XSS is injection now
+        'Auth Bypass': 'A07:2021-Identification and Authentication Failures',
+        'Path Traversal': 'A01:2021-Broken Access Control',
+        'CSRF': 'A04:2021-Insecure Design', # Broad categorization
+        'Info Leak': 'A01:2021-Broken Access Control',
+        'Memory Corruption': 'A02:2021-Cryptographic Failures' # Weak stretch, but fits 'software and data integrity' sometimes or memory safety
+        # Better to map widely accepted CWE->OWASP 2021
+    }
+    return mapping.get(vuln_type, 'Uncategorized')
+
 # --- Logic: Render CVE Detail Page ---
 def render_cve_detail(cve_id):
     storage = get_storage()
@@ -376,6 +391,7 @@ def load_and_process(vid):
     if not cves.empty:
         cves['published_date'] = pd.to_datetime(cves['published_date'])
         cves['vuln_type'] = cves.apply(lambda r: classify_vuln(r, cwes), axis=1)
+        cves['owasp'] = cves['vuln_type'].apply(get_owasp_category)
         
     return cves, prods, cwes
 
@@ -390,78 +406,154 @@ st.title(selected_vendor_name)
 st.markdown("Vulnerability Intelligence Dashboard")
 st.write("")
 
+# --- FILTERING ---
+with st.expander("🔍 Filter Options", expanded=False):
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        # Date Filter
+        min_d = df_cves['published_date'].min()
+        max_d = df_cves['published_date'].max()
+        if pd.isnull(min_d): min_d = datetime(2000,1,1)
+        if pd.isnull(max_d): max_d = datetime.now()
+        date_range = st.date_input("Date Range", [min_d, max_d])
+    with c2:
+        # Severity Filter
+        all_sev = sorted(df_cves['cvss_v31_severity'].dropna().unique())
+        sel_sev = st.multiselect("Severity", all_sev, default=all_sev)
+    with c3:
+        # Vuln Type Filter
+        all_types = sorted(df_cves['vuln_type'].unique())
+        sel_types = st.multiselect("Vulnerability Type", all_types, default=all_types)
+
+# Apply Filters
+if len(date_range) == 2:
+    mask = (df_cves['published_date'] >= pd.to_datetime(date_range[0])) & \
+           (df_cves['published_date'] <= pd.to_datetime(date_range[1]))
+else:
+    mask = pd.Series([True]*len(df_cves))
+
+if sel_sev:
+    mask &= df_cves['cvss_v31_severity'].isin(sel_sev)
+if sel_types:
+    mask &= df_cves['vuln_type'].isin(sel_types)
+
+fdf = df_cves[mask]
+
 # KPIs
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    render_metric("Total CVEs", len(df_cves), "All time", "text-c-blue")
+    render_metric("Total CVEs", len(fdf), "Selected range", "text-c-blue")
 with col2:
-    crit = len(df_cves[df_cves['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
-    pct = (crit/len(df_cves)*100) if len(df_cves) > 0 else 0
-    render_metric("Critical/High", crit, f"{pct:.0f}% of total", "text-c-red")
+    crit = len(fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
+    pct = (crit/len(fdf)*100) if len(fdf) > 0 else 0
+    render_metric("Critical/High", crit, f"{pct:.0f}% of selected", "text-c-red")
 with col3:
-    avg = df_cves['cvss_v31_base_score'].mean()
-    render_metric("Avg Severity", f"{avg:.1f}", "CVSS v3.1", "text-c-orange")
+    if not fdf.empty:
+        avg = fdf['cvss_v31_base_score'].mean()
+        render_metric("Avg Severity", f"{avg:.1f}", "CVSS v3.1", "text-c-orange")
+    else:
+        render_metric("Avg Severity", "0.0", "No data", "text-c-orange")
 with col4:
-    cnt = df_products['product'].nunique()
+    # Filter products based on filtered CVEs
+    filtered_cve_ids = fdf['cve_id'].unique()
+    cnt = df_products[df_products['cve_id'].isin(filtered_cve_ids)]['product'].nunique()
     render_metric("Products", cnt, "Affected", "text-c-green")
 
 # CHARTS
 st.write("")
 st.subheader("Analysis")
 
+if fdf.empty:
+    st.warning("No data matches your filters.")
+    st.stop()
+
+# Row 1: Trends & Severity
 c1, c2 = st.columns([2, 1])
 with c1:
     st.markdown('<div class="bento-card">', unsafe_allow_html=True)
     st.caption("VULNERABILITY TRENDS")
-    ts = df_cves.set_index('published_date').resample('ME').size().reset_index(name='count')
-    fig = px.bar(ts, x='published_date', y='count', color_discrete_sequence=['#2563EB'])
-    fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="")
-    st.plotly_chart(fig, use_container_width=True)
+    ts = fdf.set_index('published_date').resample('ME').size().reset_index(name='count')
+    if not ts.empty:
+        fig = px.bar(ts, x='published_date', y='count', color_discrete_sequence=['#2563EB'])
+        fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="")
+        st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with c2:
     st.markdown('<div class="bento-card">', unsafe_allow_html=True)
     st.caption("SEVERITY DISTRIBUTION")
-    sev = df_cves['cvss_v31_severity'].value_counts()
+    sev = fdf['cvss_v31_severity'].value_counts()
     colors = {'CRITICAL':'#DC2626', 'HIGH':'#EA580C', 'MEDIUM':'#D97706', 'LOW':'#059669', 'UNKNOWN':'#9CA3AF'}
-    fig = px.pie(values=sev.values, names=sev.index, color=sev.index, color_discrete_map=colors, hole=0.7)
-    fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
-    fig.update_traces(textinfo='percent+label')
-    st.plotly_chart(fig, use_container_width=True)
+    if not sev.empty:
+        fig = px.pie(values=sev.values, names=sev.index, color=sev.index, color_discrete_map=colors, hole=0.7)
+        fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
+        fig.update_traces(textinfo='percent+label')
+        st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
+# Row 2: CWE & Category
 c3, c4 = st.columns(2)
 with c3:
     st.markdown('<div class="bento-card">', unsafe_allow_html=True)
     st.caption("TOP WEAKNESS TYPES (CWE)")
     if not df_cwes.empty:
-        cwes = df_cwes[df_cwes['cve_id'].isin(df_cves['cve_id'])]['cwe_id'].value_counts().head(8)
-        fig = px.bar(x=cwes.values, y=cwes.index, orientation='h', color=cwes.values, color_continuous_scale='Reds')
-        fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
+        filtered_cwes = df_cwes[df_cwes['cve_id'].isin(fdf['cve_id'])]
+        if not filtered_cwes.empty:
+            cwes = filtered_cwes['cwe_id'].value_counts().head(8)
+            fig = px.bar(x=cwes.values, y=cwes.index, orientation='h', color=cwes.values, color_continuous_scale='Reds')
+            fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
+            st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with c4:
     st.markdown('<div class="bento-card">', unsafe_allow_html=True)
     st.caption("VULNERABILITY CATEGORIES")
-    vtypes = df_cves['vuln_type'].value_counts()
-    fig = px.bar(x=vtypes.values, y=vtypes.index, orientation='h', color=vtypes.values, color_continuous_scale='Blues')
-    fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
-    st.plotly_chart(fig, use_container_width=True)
+    vtypes = fdf['vuln_type'].value_counts()
+    if not vtypes.empty:
+        fig = px.bar(x=vtypes.values, y=vtypes.index, orientation='h', color=vtypes.values, color_continuous_scale='Blues')
+        fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Row 3: OWASP & Heatmap
+c5, c6 = st.columns(2)
+with c5:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("OWASP TOP 10 (2021) MAPPING")
+    owasp = fdf['owasp'].value_counts()
+    if not owasp.empty:
+        fig = px.bar(x=owasp.values, y=owasp.index, orientation='h', color=owasp.values, color_continuous_scale='Purples')
+        fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with c6:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("VULN TYPE HEATMAP (YEARLY)")
+    # Prepare Heapmap Data
+    df_hm = fdf.copy()
+    df_hm['year'] = df_hm['published_date'].dt.year
+    hm_data = df_hm.groupby(['vuln_type', 'year']).size().reset_index(name='count')
+    if not hm_data.empty:
+        fig = px.density_heatmap(hm_data, x='year', y='vuln_type', z='count', color_continuous_scale='Viridis')
+        fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Not enough data for heatmap")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # LIST
 st.write("")
 st.subheader("Vulnerabilities")
-csv = df_cves.to_csv(index=False).encode('utf-8')
+csv = fdf.to_csv(index=False).encode('utf-8')
 st.download_button("Download CSV", csv, "cve_data.csv", "text/csv")
 
 # Custom Table
-cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en', 'vuln_type']
-df_cves['LINK'] = df_cves['cve_id'].apply(lambda x: f"?cve={x}")
+cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en', 'vuln_type', 'owasp']
+fdf['LINK'] = fdf['cve_id'].apply(lambda x: f"?cve={x}")
 
 st.dataframe(
-    df_cves[['LINK'] + cols].sort_values('published_date', ascending=False),
+    fdf[['LINK'] + cols].sort_values('published_date', ascending=False),
     use_container_width=True,
     column_config={
         "LINK": st.column_config.LinkColumn("", display_text="Open", width=60),
@@ -470,7 +562,8 @@ st.dataframe(
         "cvss_v31_severity": "Severity",
         "cvss_v31_base_score": st.column_config.NumberColumn("Score", format="%.1f"),
         "description_en": st.column_config.TextColumn("Description", width="large"),
-        "vuln_type": "Type"
+        "vuln_type": "Type",
+        "owasp": "OWASP Category"
     },
     height=800,
     hide_index=True
