@@ -1,6 +1,6 @@
 """
-CVE Dashboard
-Professional vulnerability intelligence platform with modern UI.
+InsideCVE
+Professional vulnerability intelligence platform.
 """
 
 import streamlit as st
@@ -21,10 +21,10 @@ from src.cvedetails_fetcher import CVEDetailsFetcher
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="CVE Dashboard", 
-    page_icon="🛡️",
+    page_title="InsideCVE", 
+    page_icon=None,
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # --- CUSTOM CSS ---
@@ -32,113 +32,121 @@ def load_css():
     st.markdown("""
         <style>
         /* Global Font */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
         html, body, [class*="css"] {
             font-family: 'Inter', sans-serif;
+            color: #111827;
         }
         
-        /* Metric Card */
-        div.metric-card {
+        /* Layout Grid */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .bento-card {
             background-color: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            height: 100%;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
         }
         
-        div.metric-label {
-            color: #64748B;
+        .bento-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Typography */
+        h1 { font-weight: 700; font-size: 2.25rem; letter-spacing: -0.025em; color: #111827; }
+        h2 { font-weight: 600; font-size: 1.5rem; letter-spacing: -0.025em; color: #1F2937; margin-bottom: 16px; }
+        h3 { font-weight: 600; font-size: 1.125rem; color: #374151; }
+        
+        /* Metric Styling */
+        .metric-label {
             font-size: 0.875rem;
-            font-weight: 600;
+            font-weight: 500;
+            color: #6B7280;
+            margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 8px;
         }
         
-        div.metric-value {
-            color: #1E293B;
-            font-size: 2rem;
+        .metric-value {
+            font-size: 2.25rem;
             font-weight: 700;
+            color: #111827;
+            line-height: 1;
         }
         
-        div.metric-delta {
+        .metric-sub {
             font-size: 0.875rem;
-            margin-top: 4px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         
-        .c-red { color: #EF4444; }
-        .c-green { color: #10B981; }
-        .c-blue { color: #3B82F6; }
-        .c-orange { color: #F97316; }
+        /* Colors */
+        .text-c-red { color: #DC2626; }
+        .text-c-orange { color: #EA580C; }
+        .text-c-green { color: #059669; }
+        .text-c-blue { color: #2563EB; }
         
-        /* Chart Container */
-        div.chart-container {
-            background-color: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        /* Detail Page Headers */
+        .detail-header-container {
+            background-color: #F9FAFB;
+            border-bottom: 1px solid #E5E7EB;
+            padding: 32px 0;
+            margin: -6rem -5rem 2rem -5rem;
+            padding-left: 5rem;
+            padding-right: 5rem;
         }
         
-        /* Sidebar Polish */
-        section[data-testid="stSidebar"] {
-            background-color: #F8FAFC;
-            border-right: 1px solid #E2E8F0;
-        }
-        
-        /* Header Polish */
-        h1, h2, h3 {
-            color: #0F172A;
-            font-weight: 700;
-        }
-        
-        /* Table highlight */
-        div[data-testid="stDataFrame"] {
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        /* Detail Page Badges */
+        /* Badges */
         .badge {
-            padding: 4px 8px;
-            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
             font-weight: 600;
-            font-size: 0.8em;
-            display: inline-block;
+            text-transform: uppercase;
         }
-        .bg-critical { background-color: #FEE2E2; color: #991B1B; }
-        .bg-high { background-color: #FFEDD5; color: #9A3412; }
-        .bg-medium { background-color: #FEF3C7; color: #92400E; }
-        .bg-low { background-color: #D1FAE5; color: #065F46; }
-
-        /* Links in tables */
-        a { text-decoration: none; color: #3B82F6; font-weight: 600; }
-        a:hover { text-decoration: underline; }
+        .badge-critical { background-color: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+        .badge-high { background-color: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
+        .badge-medium { background-color: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+        .badge-low { background-color: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+        
+        /* Links */
+        a.cve-link {
+            color: #2563EB;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        a.cve-link:hover { text-decoration: underline; }
+        
+        /* Table Polish */
+        div[data-testid="stDataFrame"] { border: none; }
         </style>
     """, unsafe_allow_html=True)
 
 load_css()
 
 # --- HELPER: Metric Card ---
-def metric_card(label, value, delta=None, color="", help_text=None):
-    delta_html = ""
-    if delta:
-        delta_color = "c-red" if "-" in delta else "c-green" # Default logic
-        if color: delta_color = color # Override
-        delta_html = f'<div class="metric-delta {delta_color}">{delta}</div>'
-        
-    html = f"""
-    <div class="metric-card">
-        <div class="metric-label" title="{help_text if help_text else ''}">{label}</div>
+def render_metric(label, value, sub_text=None, color_class="text-c-blue"):
+    st.markdown(f"""
+    <div class="bento-card">
+        <div class="metric-label">{label}</div>
         <div class="metric-value">{value}</div>
-        {delta_html}
+        <div class="metric-sub {color_class}">
+            {sub_text if sub_text else '&nbsp;'}
+        </div>
     </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # --- Session State & Database ---
 if 'building' not in st.session_state: st.session_state.building = False
@@ -158,7 +166,7 @@ def build_vendor_data(vendor_id: str, vendor_name: str, update_only: bool = Fals
     existing_cves = set()
     if update_only:
         existing_cves = storage.get_existing_cve_ids(vendor_id)
-        st.toast(f"Checking updates for {vendor_name} ({len(existing_cves)} existing)...")
+        st.toast(f"Checking updates for {vendor_name}...")
     
     with st.spinner(f"Finding CVEs for {vendor_name}..."):
         scraper = VendorScraper(headless=True)
@@ -208,23 +216,35 @@ def build_vendor_data(vendor_id: str, vendor_name: str, update_only: bool = Fals
     st.success(f"Updated {vendor_name}!")
     st.cache_data.clear()
 
+# --- Logic: Classification ---
+def classify_vuln(row, df_cwes):
+    desc = str(row.get('description_en', '')).lower()
+    cve_cwes = df_cwes[df_cwes['cve_id'] == row['cve_id']]['cwe_id'].tolist()
+    cwes_str = ' '.join(cve_cwes)
+    
+    if 'CWE-89' in cwes_str or 'sql injection' in desc: return 'SQL Injection'
+    if 'CWE-79' in cwes_str or 'xss' in desc: return 'XSS'
+    if any(c in cwes_str for c in ['CWE-78', 'CWE-77']) or 'command injection' in desc: return 'RCE'
+    if any(c in cwes_str for c in ['CWE-119', 'CWE-120', 'CWE-787']) or 'overflow' in desc: return 'Memory Corruption'
+    if 'CWE-22' in cwes_str or 'traversal' in desc: return 'Path Traversal'
+    if 'CWE-287' in cwes_str or 'authentication' in desc: return 'Auth Bypass'
+    if 'CWE-200' in cwes_str or 'disclosure' in desc: return 'Info Leak'
+    if 'CWE-352' in cwes_str or 'csrf' in desc: return 'CSRF'
+    return 'Other'
+
 # --- Logic: Render CVE Detail Page ---
 def render_cve_detail(cve_id):
     storage = get_storage()
-    # Fetch data directly
     cve_data = storage.con.execute("SELECT * FROM cves WHERE cve_id = ?", (cve_id,)).fetchone()
+    
     if not cve_data:
         st.error(f"CVE {cve_id} not found.")
-        if st.button("← Back to Dashboard"):
-            st.query_params.clear()
-            st.rerun()
+        if st.button("← Back"): st.query_params.clear(); st.rerun()
         return
 
-    # Map tuple to dict (hacky but works)
     cols = [d[0] for d in storage.con.description]
     cve = dict(zip(cols, cve_data))
     
-    # Products & CWEs
     prods = storage.con.execute("SELECT product FROM products WHERE cve_id = ?", (cve_id,)).fetchall()
     prods_list = sorted(list(set(p[0] for p in prods)))
     
@@ -235,81 +255,74 @@ def render_cve_detail(cve_id):
     ref_list = [r[0] for r in references]
 
     # --- Header ---
-    if st.button("← Back", type="secondary"):
+    if st.button("← Back to Dashboard", type="secondary"):
         st.query_params.clear()
         st.rerun()
         
-    st.title(f"{cve_id}")
-    
-    # Badge Logic
     sev = cve.get('cvss_v31_severity') or "UNKNOWN"
     score = cve.get('cvss_v31_base_score')
-    badge_class = f"bg-{sev.lower()}" if sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] else "bg-low"
+    badge_cls = f"badge-{sev.lower()}" if sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] else "badge-low"
     
     st.markdown(f"""
-        <div>
-            <span class="badge {badge_class}">{sev}</span>
-            <span style="margin-left:8px; font-weight:600; color:#64748B;">CVSS {score}</span>
-            <span style="margin-left:8px; color:#94A3B8;">| Published: {cve.get('published_date')}</span>
+    <div class="detail-header-container">
+        <div style="font-size: 0.875rem; color: #6B7280; font-weight: 500; margin-bottom: 8px;">VULNERABILITY REPORT</div>
+        <h1 style="margin: 0; font-size: 3rem;">{cve_id}</h1>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;">
+            <span class="badge {badge_cls}">{sev}</span>
+            <span style="font-weight: 600; color: #374151;">CVSS {score}</span>
+            <span style="color: #9CA3AF;">•</span>
+            <span style="color: #6B7280;">Published {cve.get('published_date')}</span>
         </div>
+    </div>
     """, unsafe_allow_html=True)
     
-    st.divider()
-    
-    # --- Main Content ---
+    # --- Content ---
     c1, c2 = st.columns([2, 1])
     
     with c1:
-        st.subheader("Description")
-        st.markdown(cve.get('description_en') or "No description available.")
+        st.markdown("### Description")
+        st.write(cve.get('description_en') or "No description.")
         
-        st.subheader("Affected Products")
+        st.markdown("### Affected Products")
         if prods_list:
-            display_prods = prods_list
-            if len(prods_list) > 10:
-                with st.expander(f"View all {len(prods_list)} products", expanded=True):
+            if len(prods_list) > 15:
+                st.write(", ".join(prods_list[:15]) + f" ... and {len(prods_list)-15} more")
+                with st.expander("Show all"):
                     st.write(", ".join(prods_list))
             else:
-                 st.write(", ".join(prods_list))
+                st.write(", ".join(prods_list))
         else:
-            st.info("No affected products listed.")
-
-        st.subheader("References")
-        if ref_list:
-            for ref in ref_list:
-                st.markdown(f"- [{ref}]({ref})")
-        else:
-            st.info("No references found.")
+            st.caption("No specific products listed.")
 
     with c2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Technical Details")
+        st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+        st.markdown("### Technical Details")
         
-        st.markdown("**Weaknesses (CWEs):**")
+        st.markdown("**CWE Weaknesses**")
         if cwes_list:
-            for cwe in cwes_list:
-                st.markdown(f"- [{cwe}](https://cwe.mitre.org/data/definitions/{cwe.split('-')[1]}.html)")
+            for c in cwes_list:
+                st.markdown(f"- [{c}](https://cwe.mitre.org/data/definitions/{c.split('-')[1]}.html)")
         else:
-            st.markdown("None listed")
+            st.caption("None")
             
-        st.markdown("**CVSS Vector:**")
+        st.markdown("**CVSS Vector**")
         st.code(cve.get('cvss_v31_vector') or "N/A", language=None)
+        
+        st.markdown("**References**")
+        with st.expander("View Links"):
+             for r in ref_list: st.markdown(f"- [Link]({r})")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- CHECK QUERY PARAMS ---
-params = st.query_params
-if "cve" in params:
-    render_cve_detail(params["cve"])
+# --- CHECK ROUTING ---
+if "cve" in st.query_params:
+    render_cve_detail(st.query_params["cve"])
     st.stop()
 
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("🛡️ CVE Watch")
-    st.markdown("---")
+    st.title("InsideCVE")
     
-    # 1. Select Vendor
-    st.subheader("Dashboard")
     vendors = load_vendor_list()
     storage = get_storage()
     fetched_vendors_df = storage.get_fetched_vendors()
@@ -317,199 +330,148 @@ with st.sidebar:
     selected_vendor_name = None
     if not fetched_vendors_df.empty:
         selected_vendor_name = st.selectbox(
-            "Select Company",
+            "Company",
             options=fetched_vendors_df['vendor_name'].tolist(),
             key="dashboard_vendor"
         )
-        
-        # Update Button
         row = fetched_vendors_df[fetched_vendors_df['vendor_name'] == selected_vendor_name].iloc[0]
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("↻", help="Update Data"):
-                build_vendor_data(row['vendor_id'], row['vendor_name'], update_only=True)
-                st.rerun()
-        with col2:
-            st.caption(f"Last updated: {pd.to_datetime(row['last_updated']).strftime('%Y-%m-%d')}")
+        if st.button("Check for Updates", use_container_width=True):
+            build_vendor_data(row['vendor_id'], row['vendor_name'], update_only=True)
+            st.rerun()
+        st.caption(f"Last sync: {pd.to_datetime(row['last_updated']).strftime('%Y-%m-%d')}")
     else:
-        st.info("No data yet. Determine a vendor below.")
+        st.info("Select a vendor to start.")
 
-    st.markdown("---")
-    
-    # 2. Add New
-    with st.expander("Add New Company"):
+    with st.expander("Add Vendor"):
         if vendors:
             vendor_opts = [v["name"] for v in vendors]
-            new_vendor = st.selectbox("Find Vendor", [""] + vendor_opts)
-            if new_vendor:
-                v_data = next((v for v in vendors if v["name"] == new_vendor), None)
-                if st.button(f"Build {new_vendor}", type="primary", use_container_width=True):
-                    build_vendor_data(v_data["id"], new_vendor)
-                    st.rerun()
-        else:
-            if st.button("Fetch Vendor List (A-Z)"):
-                with st.spinner("Fetching..."):
-                    VendorScraper(headless=True).get_all_vendors(force_refresh=True)
+            new_v = st.selectbox("Search", [""] + vendor_opts)
+            if new_v and st.button("Build Database"):
+                v_data = next((v for v in vendors if v["name"] == new_v), None)
+                build_vendor_data(v_data["id"], new_v)
                 st.rerun()
+        elif st.button("Load Vendor List"):
+            VendorScraper(headless=True).get_all_vendors(force_refresh=True)
+            st.rerun()
+    
+    st.divider()
+    st.markdown("[GitHub Repo](https://github.com/pwnarch/insidecve)")
 
-    st.markdown("---")
-    st.markdown("*v2.0 • [GitHub](https://github.com/pwnarch/insidecve)*")
-
-# --- MAIN DASHBOARD CONTENT ---
+# --- MAIN DASHBOARD ---
 if not selected_vendor_name:
-    st.title("Welcome to CVE Watch")
-    st.markdown("""
-    ### Getting Started
-    1. Look for a company in the **Sidebar** > **Add New Company**
-    2. Click **Build** to generate their security profile
-    3. Analyze trends, severity, and critical vulnerabilities
-    """)
+    st.title("Welcome to InsideCVE")
+    st.markdown("Select a company from the sidebar to view intelligence.")
     st.stop()
 
 # Load Data
 current_vendor_id = fetched_vendors_df[fetched_vendors_df['vendor_name'] == selected_vendor_name].iloc[0]['vendor_id']
 
 @st.cache_data
-def load_data(vid):
+def load_and_process(vid):
     s = get_storage()
     cves = s.get_cves_by_vendor(vid)
     prods = s.con.execute("SELECT * FROM products WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
     cwes = s.con.execute("SELECT * FROM weaknesses WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
+    
+    if not cves.empty:
+        cves['published_date'] = pd.to_datetime(cves['published_date'])
+        cves['vuln_type'] = cves.apply(lambda r: classify_vuln(r, cwes), axis=1)
+        
     return cves, prods, cwes
 
 try:
-    df_cves, df_products, df_cwes = load_data(current_vendor_id)
+    df_cves, df_products, df_cwes = load_and_process(current_vendor_id)
 except Exception as e:
-    st.error(f"Data load error: {e}")
+    st.error(f"Error: {e}")
     st.stop()
 
-# FILTERS
-st.write("") # Spacer
-c1, c2, c3 = st.columns([3, 1, 1])
-with c1:
-    st.title(f"{selected_vendor_name} Intelligence")
-with c2:
-    min_d = pd.to_datetime(df_cves['published_date']).min()
-    max_d = pd.to_datetime(df_cves['published_date']).max()
-    if pd.isnull(min_d): min_d = datetime(2000,1,1)
-    if pd.isnull(max_d): max_d = datetime.now()
-    dates = st.date_input("Filter Date", [min_d, max_d])
-
-# Apply Filter
-mask = (pd.to_datetime(df_cves['published_date']) >= pd.to_datetime(dates[0])) & \
-       (pd.to_datetime(df_cves['published_date']) <= pd.to_datetime(dates[1]))
-fdf = df_cves[mask]
-
-# --- KPI ROW ---
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    metric_card("Total CVEs", len(fdf), f"+{len(fdf[pd.to_datetime(fdf['published_date']) > datetime.now()-timedelta(days=30)])} this month", "c-blue")
-
-with col2:
-    crit = len(fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
-    pct = (crit/len(fdf)*100) if len(fdf) > 0 else 0
-    metric_card("Critical & High", crit, f"{pct:.1f}% of total", "c-red")
-
-with col3:
-    avg = fdf['cvss_v31_base_score'].mean()
-    metric_card("Avg CVSS Score", f"{avg:.1f}", "Base Score v3.1", "c-orange")
-
-with col4:
-    prods = df_products[df_products['cve_id'].isin(fdf['cve_id'])]['product'].nunique()
-    metric_card("Impacted Products", prods, "Total Unique", "c-green")
-
-# --- CHARTS ---
+# Header
+st.title(selected_vendor_name)
+st.markdown("Vulnerability Intelligence Dashboard")
 st.write("")
-tabs = st.tabs(["📊 Analytics", "📋 Vulnerabilities", "🚨 Critical List"])
 
-with tabs[0]:
-    # Row 1: Timeline & Severity
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Vulnerability Timeline")
-        fdf['published_date'] = pd.to_datetime(fdf['published_date'])
-        ts = fdf.set_index('published_date').resample('M').size().reset_index(name='count')
-        fig = px.bar(ts, x='published_date', y='count', color_discrete_sequence=['#3B82F6'])
-        fig.update_layout(xaxis_title="", yaxis_title="New CVEs", showlegend=False, margin=dict(l=0,r=0,t=0,b=0), height=300)
+# KPIs
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    render_metric("Total CVEs", len(df_cves), "All time", "text-c-blue")
+with col2:
+    crit = len(df_cves[df_cves['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
+    pct = (crit/len(df_cves)*100) if len(df_cves) > 0 else 0
+    render_metric("Critical/High", crit, f"{pct:.0f}% of total", "text-c-red")
+with col3:
+    avg = df_cves['cvss_v31_base_score'].mean()
+    render_metric("Avg Severity", f"{avg:.1f}", "CVSS v3.1", "text-c-orange")
+with col4:
+    cnt = df_products['product'].nunique()
+    render_metric("Products", cnt, "Affected", "text-c-green")
+
+# CHARTS
+st.write("")
+st.subheader("Analysis")
+
+c1, c2 = st.columns([2, 1])
+with c1:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("VULNERABILITY TRENDS")
+    ts = df_cves.set_index('published_date').resample('ME').size().reset_index(name='count')
+    fig = px.bar(ts, x='published_date', y='count', color_discrete_sequence=['#2563EB'])
+    fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="")
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with c2:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("SEVERITY DISTRIBUTION")
+    sev = df_cves['cvss_v31_severity'].value_counts()
+    colors = {'CRITICAL':'#DC2626', 'HIGH':'#EA580C', 'MEDIUM':'#D97706', 'LOW':'#059669', 'UNKNOWN':'#9CA3AF'}
+    fig = px.pie(values=sev.values, names=sev.index, color=sev.index, color_discrete_map=colors, hole=0.7)
+    fig.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0), showlegend=False)
+    fig.update_traces(textinfo='percent+label')
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+c3, c4 = st.columns(2)
+with c3:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("TOP WEAKNESS TYPES (CWE)")
+    if not df_cwes.empty:
+        cwes = df_cwes[df_cwes['cve_id'].isin(df_cves['cve_id'])]['cwe_id'].value_counts().head(8)
+        fig = px.bar(x=cwes.values, y=cwes.index, orientation='h', color=cwes.values, color_continuous_scale='Reds')
+        fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with c2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Severity Breakdown")
-        sev = fdf['cvss_v31_severity'].value_counts()
-        colors = {'CRITICAL': '#EF4444', 'HIGH': '#F97316', 'MEDIUM': '#F59E0B', 'LOW': '#10B981'}
-        fig = px.donut(values=sev.values, names=sev.index, color=sev.index, color_discrete_map=colors, hole=0.6)
-        fig.update_layout(showlegend=False, margin=dict(l=0,r=0,t=0,b=0), height=300)
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Row 2: Heatmap & Products
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Top Weaknesses (CWE)")
-        if not df_cwes.empty:
-            cwes = df_cwes[df_cwes['cve_id'].isin(fdf['cve_id'])]['cwe_id'].value_counts().head(8)
-            fig = px.bar(x=cwes.values, y=cwes.index, orientation='h', color=cwes.values, color_continuous_scale='Reds')
-            fig.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Count", yaxis_title="", margin=dict(l=0,r=0,t=0,b=0), height=300, coloraxis_showscale=False)
-            st.plotly_chart(fig, use_container_width=True)
-        else: st.info("No CWE data")
-        st.markdown('</div>', unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+    st.caption("VULNERABILITY CATEGORIES")
+    vtypes = df_cves['vuln_type'].value_counts()
+    fig = px.bar(x=vtypes.values, y=vtypes.index, orientation='h', color=vtypes.values, color_continuous_scale='Blues')
+    fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="", coloraxis_showscale=False)
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with c2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Most Affected Products")
-        if not df_products.empty:
-            prods = df_products[df_products['cve_id'].isin(fdf['cve_id'])]['product'].value_counts().head(8)
-            fig = px.bar(x=prods.values, y=prods.index, orientation='h', color=prods.values, color_continuous_scale='Blues')
-            fig.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Count", yaxis_title="", margin=dict(l=0,r=0,t=0,b=0), height=300, coloraxis_showscale=False)
-            st.plotly_chart(fig, use_container_width=True)
-        else: st.info("No product data")
-        st.markdown('</div>', unsafe_allow_html=True)
+# LIST
+st.write("")
+st.subheader("Vulnerabilities")
+csv = df_cves.to_csv(index=False).encode('utf-8')
+st.download_button("Download CSV", csv, "cve_data.csv", "text/csv")
 
-with tabs[1]:
-    st.subheader("Full Vulnerability List")
-    cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en']
-    
-    # Add clickable link column
-    fdf['LINK'] = fdf['cve_id'].apply(lambda x: f"?cve={x}")
-    
-    st.dataframe(
-        fdf[['LINK'] + cols].sort_values('published_date', ascending=False),
-        use_container_width=True,
-        column_config={
-            "LINK": st.column_config.LinkColumn("View", display_text="Open", width=50),
-            "cve_id": "ID",
-            "published_date": st.column_config.DateColumn("Published"),
-            "cvss_v31_severity": "Severity",
-            "cvss_v31_base_score": st.column_config.NumberColumn("CVSS", format="%.1f"),
-            "description_en": st.column_config.TextColumn("Description", width="large")
-        },
-        height=600
-    )
+# Custom Table
+cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en', 'vuln_type']
+df_cves['LINK'] = df_cves['cve_id'].apply(lambda x: f"?cve={x}")
 
-with tabs[2]:
-    st.subheader("🚨 Priority Action List")
-    crit = fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])].sort_values('cvss_v31_base_score', ascending=False)
-    if not crit.empty:
-        for idx, row in crit.head(10).iterrows():
-            with st.container():
-                c1, c2 = st.columns([1, 10])
-                with c1:
-                    score = row['cvss_v31_base_score']
-                    color = "#EF4444" if score >= 9.0 else "#F97316"
-                    st.markdown(f"""
-                    <div style="background-color:{color}; color:white; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
-                        {score}
-                    </div>
-                    """, unsafe_allow_html=True)
-                with c2:
-                    # Link in the priority list too
-                    st.markdown(f"**[{row['cve_id']}](?cve={row['cve_id']})** • {row['published_date'].strftime('%Y-%m-%d')}")
-                    st.caption(row['description_en'])
-                st.divider()
-    else:
-        st.success("No critical vulnerabilities found!")
+st.dataframe(
+    df_cves[['LINK'] + cols].sort_values('published_date', ascending=False),
+    use_container_width=True,
+    column_config={
+        "LINK": st.column_config.LinkColumn("", display_text="Open", width=60),
+        "cve_id": st.column_config.TextColumn("ID", width=120),
+        "published_date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+        "cvss_v31_severity": "Severity",
+        "cvss_v31_base_score": st.column_config.NumberColumn("Score", format="%.1f"),
+        "description_en": st.column_config.TextColumn("Description", width="large"),
+        "vuln_type": "Type"
+    },
+    height=800,
+    hide_index=True
+)
