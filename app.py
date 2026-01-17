@@ -71,6 +71,7 @@ def load_css():
         .c-red { color: #EF4444; }
         .c-green { color: #10B981; }
         .c-blue { color: #3B82F6; }
+        .c-orange { color: #F97316; }
         
         /* Chart Container */
         div.chart-container {
@@ -100,6 +101,23 @@ def load_css():
             border-radius: 8px;
             overflow: hidden;
         }
+        
+        /* Detail Page Badges */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8em;
+            display: inline-block;
+        }
+        .bg-critical { background-color: #FEE2E2; color: #991B1B; }
+        .bg-high { background-color: #FFEDD5; color: #9A3412; }
+        .bg-medium { background-color: #FEF3C7; color: #92400E; }
+        .bg-low { background-color: #D1FAE5; color: #065F46; }
+
+        /* Links in tables */
+        a { text-decoration: none; color: #3B82F6; font-weight: 600; }
+        a:hover { text-decoration: underline; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -190,6 +208,101 @@ def build_vendor_data(vendor_id: str, vendor_name: str, update_only: bool = Fals
     st.success(f"Updated {vendor_name}!")
     st.cache_data.clear()
 
+# --- Logic: Render CVE Detail Page ---
+def render_cve_detail(cve_id):
+    storage = get_storage()
+    # Fetch data directly
+    cve_data = storage.con.execute("SELECT * FROM cves WHERE cve_id = ?", (cve_id,)).fetchone()
+    if not cve_data:
+        st.error(f"CVE {cve_id} not found.")
+        if st.button("← Back to Dashboard"):
+            st.query_params.clear()
+            st.rerun()
+        return
+
+    # Map tuple to dict (hacky but works)
+    cols = [d[0] for d in storage.con.description]
+    cve = dict(zip(cols, cve_data))
+    
+    # Products & CWEs
+    prods = storage.con.execute("SELECT product FROM products WHERE cve_id = ?", (cve_id,)).fetchall()
+    prods_list = sorted(list(set(p[0] for p in prods)))
+    
+    cwes = storage.con.execute("SELECT cwe_id FROM weaknesses WHERE cve_id = ?", (cve_id,)).fetchall()
+    cwes_list = [c[0] for c in cwes]
+    
+    references = storage.con.execute("SELECT url FROM cve_references WHERE cve_id = ?", (cve_id,)).fetchall()
+    ref_list = [r[0] for r in references]
+
+    # --- Header ---
+    if st.button("← Back", type="secondary"):
+        st.query_params.clear()
+        st.rerun()
+        
+    st.title(f"{cve_id}")
+    
+    # Badge Logic
+    sev = cve.get('cvss_v31_severity') or "UNKNOWN"
+    score = cve.get('cvss_v31_base_score')
+    badge_class = f"bg-{sev.lower()}" if sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] else "bg-low"
+    
+    st.markdown(f"""
+        <div>
+            <span class="badge {badge_class}">{sev}</span>
+            <span style="margin-left:8px; font-weight:600; color:#64748B;">CVSS {score}</span>
+            <span style="margin-left:8px; color:#94A3B8;">| Published: {cve.get('published_date')}</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # --- Main Content ---
+    c1, c2 = st.columns([2, 1])
+    
+    with c1:
+        st.subheader("Description")
+        st.markdown(cve.get('description_en') or "No description available.")
+        
+        st.subheader("Affected Products")
+        if prods_list:
+            display_prods = prods_list
+            if len(prods_list) > 10:
+                with st.expander(f"View all {len(prods_list)} products", expanded=True):
+                    st.write(", ".join(prods_list))
+            else:
+                 st.write(", ".join(prods_list))
+        else:
+            st.info("No affected products listed.")
+
+        st.subheader("References")
+        if ref_list:
+            for ref in ref_list:
+                st.markdown(f"- [{ref}]({ref})")
+        else:
+            st.info("No references found.")
+
+    with c2:
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Technical Details")
+        
+        st.markdown("**Weaknesses (CWEs):**")
+        if cwes_list:
+            for cwe in cwes_list:
+                st.markdown(f"- [{cwe}](https://cwe.mitre.org/data/definitions/{cwe.split('-')[1]}.html)")
+        else:
+            st.markdown("None listed")
+            
+        st.markdown("**CVSS Vector:**")
+        st.code(cve.get('cvss_v31_vector') or "N/A", language=None)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --- CHECK QUERY PARAMS ---
+params = st.query_params
+if "cve" in params:
+    render_cve_detail(params["cve"])
+    st.stop()
+
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🛡️ CVE Watch")
@@ -242,7 +355,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("*v2.0 • [GitHub](https://github.com/pwnarch/insidecve)*")
 
-# --- MAIN CONTENT ---
+# --- MAIN DASHBOARD CONTENT ---
 if not selected_vendor_name:
     st.title("Welcome to CVE Watch")
     st.markdown("""
@@ -291,7 +404,7 @@ fdf = df_cves[mask]
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    metric_card("Total CVEs", len(fdf), f"+{len(fdf[pd.to_datetime(fdf['published_date']) > datetime.now()-timedelta(days=30)])} this month")
+    metric_card("Total CVEs", len(fdf), f"+{len(fdf[pd.to_datetime(fdf['published_date']) > datetime.now()-timedelta(days=30)])} this month", "c-blue")
 
 with col2:
     crit = len(fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
@@ -300,11 +413,11 @@ with col2:
 
 with col3:
     avg = fdf['cvss_v31_base_score'].mean()
-    metric_card("Avg CVSS Score", f"{avg:.1f}", "Base Score v3.1", "c-blue")
+    metric_card("Avg CVSS Score", f"{avg:.1f}", "Base Score v3.1", "c-orange")
 
 with col4:
     prods = df_products[df_products['cve_id'].isin(fdf['cve_id'])]['product'].nunique()
-    metric_card("Impacted Products", prods, "Total Unique")
+    metric_card("Impacted Products", prods, "Total Unique", "c-green")
 
 # --- CHARTS ---
 st.write("")
@@ -360,10 +473,15 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("Full Vulnerability List")
     cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en']
+    
+    # Add clickable link column
+    fdf['LINK'] = fdf['cve_id'].apply(lambda x: f"?cve={x}")
+    
     st.dataframe(
-        fdf[cols].sort_values('published_date', ascending=False),
+        fdf[['LINK'] + cols].sort_values('published_date', ascending=False),
         use_container_width=True,
         column_config={
+            "LINK": st.column_config.LinkColumn("View", display_text="Open", width=50),
             "cve_id": "ID",
             "published_date": st.column_config.DateColumn("Published"),
             "cvss_v31_severity": "Severity",
@@ -389,7 +507,8 @@ with tabs[2]:
                     </div>
                     """, unsafe_allow_html=True)
                 with c2:
-                    st.markdown(f"**{row['cve_id']}** • {row['published_date'].strftime('%Y-%m-%d')}")
+                    # Link in the priority list too
+                    st.markdown(f"**[{row['cve_id']}](?cve={row['cve_id']})** • {row['published_date'].strftime('%Y-%m-%d')}")
                     st.caption(row['description_en'])
                 st.divider()
     else:
