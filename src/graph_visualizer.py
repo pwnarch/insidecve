@@ -43,8 +43,28 @@ def build_network_graph(df_cves, df_products, vendor_name):
     # Or just show Top 50 by severity?
     
     # Let's verify count.
-    if len(cve_nodes) > 150:
-        cve_nodes = cve_nodes.sort_values('cvss_v31_base_score', ascending=False).head(150)
+    # Limit CVEs to prevent graph explosion
+    # Balanced sampling strategy to ensure we show Critical, High, Medium, AND Low
+    MAX_NODES = 300
+    
+    if len(cve_nodes) > MAX_NODES:
+        # Sort by score for initial ordering
+        cve_nodes = cve_nodes.sort_values('cvss_v31_base_score', ascending=False)
+        
+        # Take up to 60 of each type first to ensure diversity
+        final_nodes = pd.DataFrame()
+        for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
+            subset = cve_nodes[cve_nodes['cvss_v31_severity'] == sev]
+            final_nodes = pd.concat([final_nodes, subset.head(60)])
+        
+        # Fill remaining spots with highest scoring regardless of type
+        remaining_slots = MAX_NODES - len(final_nodes)
+        if remaining_slots > 0:
+            existing_ids = set(final_nodes['cve_id'])
+            leftover = cve_nodes[~cve_nodes['cve_id'].isin(existing_ids)]
+            final_nodes = pd.concat([final_nodes, leftover.head(remaining_slots)])
+            
+        cve_nodes = final_nodes
     
     sev_colors = {
         'CRITICAL': '#DC2626',   # 🔴 Red

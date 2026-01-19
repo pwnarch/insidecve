@@ -107,97 +107,135 @@ def load_css():
         }
 
         /* ══════════════════════════════════════════════════════════════
-           TOP NAVIGATION BAR - Glassmorphic
+           TOP NAVIGATION BAR - Premium Glassmorphic
         ══════════════════════════════════════════════════════════════ */
-        .top-nav-container {
-            position: sticky;
+        .nav-background {
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            z-index: 999;
-            background: rgba(10, 10, 10, 0.95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid #1F1F1F;
-            margin: -1rem -3rem 1rem -3rem;
-            padding: 0.5rem 3rem;
+            z-index: 998;
+            background: rgba(5, 5, 5, 0.85); /* Darker, more transparent */
+            backdrop-filter: blur(25px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); /* Deep shadow */
+            height: 60px;
         }
         
-        /* Logo Styling */
+        .nav-left-container {
+            display: flex;
+            align-items: center;
+            height: 42px;
+        }
+        
+        /* Logo Styling - Vibrant Gradient */
         .nav-logo {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             height: 40px;
+            margin-right: 12px;
+            cursor: pointer;
         }
         
         .logo-icon {
-            font-size: 1.5rem;
-            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 1.6rem;
+            filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.5)); /* Glowing Icon */
         }
         
         .logo-text {
-            font-size: 1.1rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em;
+        }
+
+        /* Premium Navigation Pills */
+        .nav-links {
+            display: flex;
+            gap: 8px; /* Tighter gap for pills */
+            margin-left: 32px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .nav-link {
+            position: relative;
+            text-decoration: none;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 6px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .nav-link:hover {
+            color: #E2E8F0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .nav-link-active {
+            color: #FFFFFF !important;
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
             font-weight: 600;
-            color: #FFFFFF;
-            letter-spacing: -0.02em;
         }
         
-        /* Search input in nav */
-        .top-nav-container .stTextInput input {
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid #333 !important;
-            border-radius: 8px !important;
-            color: #E5E5E5 !important;
-            font-size: 0.875rem !important;
-            height: 38px !important;
-            padding: 0 12px !important;
+        /* Remove old underline styles */
+        .nav-link::after { content: none; }
+        
+        /* Search Input - Sleek & Glowing */
+        .stTextInput {
+            margin-bottom: 0px;
         }
         
-        .top-nav-container .stTextInput input:focus {
-            border-color: #8B5CF6 !important;
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
-        }
-        
-        .top-nav-container .stTextInput input::placeholder {
-            color: #666 !important;
-        }
-        
-        .top-nav-container .stButton > button {
-            background: transparent !important;
-            border: none !important;
-            border-bottom: 2px solid transparent !important;
-            border-radius: 0 !important;
-            color: #737373 !important;
-            font-size: 0.875rem !important;
-            font-weight: 500 !important;
-            letter-spacing: 0.02em !important;
-            padding: 0.5rem 0.75rem !important;
-            height: 40px !important;
-            transition: all 0.3s ease !important;
-        }
-        
-        .top-nav-container .stButton > button:hover {
-            color: #E5E5E5 !important;
+        .stTextInput input {
             background: rgba(255, 255, 255, 0.03) !important;
-            border-bottom-color: transparent !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            color: #e2e8f0 !important;
+            font-size: 0.9rem !important;
+            height: 38px !important;
+            padding: 0 16px !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
-        .top-nav-container .stButton > button[kind="secondary"] {
-            color: #8B5CF6 !important;
-            background: rgba(139, 92, 246, 0.05) !important;
-            border-bottom-color: #8B5CF6 !important;
+        .stTextInput input:focus {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border-color: #8B5CF6 !important;
+            box-shadow: 0 0 0 1px #8B5CF6, 0 0 15px rgba(139, 92, 246, 0.2) !important;
+            transform: translateY(-1px);
         }
         
-        .top-nav-container [data-testid="column"] {
-            padding: 0 4px !important;
+        .stTextInput input::placeholder {
+            color: #64748b !important;
         }
         
-        .top-nav-container [data-testid="column"]:first-child {
-            padding-left: 0 !important;
+        /* Filter Button */
+        button[kind="tertiary"] {
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            color: #94a3b8 !important;
+            border-radius: 10px !important;
+            transition: all 0.3s ease !important;
+            white-space: nowrap !important;
         }
+        
+        button[kind="tertiary"]:hover {
+            background: rgba(139, 92, 246, 0.1) !important;
+            border-color: #8B5CF6 !important;
+            color: #fff !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+        }
+        
+        /* Spacers */
+        [data-testid="column"] { padding: 0 6px !important; }
         
         /* Filter toggle button specific styling */
         .top-nav-container [data-testid="column"]:last-child .stButton > button {
@@ -610,39 +648,44 @@ def render_top_nav():
     """Render top navigation bar with logo, page tabs, and search."""
     current_page = st.query_params.get("page", "")
     
-    # Build navigation HTML with clickable links
+    # Nav Background Layer
+    st.markdown('<div class="nav-background"></div>', unsafe_allow_html=True)
+    
+    # Main Layout: [Logo + Links] [Search] [Filter]
+    # Adjust padding to align with background
+    c_nav, c_search, c_filter = st.columns([5, 3, 1])
+    
     active_dash = "nav-link-active" if current_page == "" else ""
     active_cwe = "nav-link-active" if current_page == "cwe" else ""
     active_net = "nav-link-active" if current_page == "network" else ""
     
-    nav_html = f'''
-    <div class="top-nav-bar">
-        <div class="nav-left">
+    with c_nav:
+        st.markdown(f'''
+        <div class="nav-left-container">
             <div class="nav-logo">
                 <span class="logo-icon">◈</span>
                 <span class="logo-text">InsideCVE</span>
             </div>
-            <a href="/" class="nav-link {active_dash}">Dashboard</a>
-            <a href="?page=cwe" class="nav-link {active_cwe}">CWE</a>
-            <a href="?page=network" class="nav-link {active_net}">Network</a>
+            <div class="nav-links">
+                <a href="/" target="_self" class="nav-link {active_dash}">Dashboard</a>
+                <a href="?page=cwe" target="_self" class="nav-link {active_cwe}">CWE</a>
+                <a href="?page=network" target="_self" class="nav-link {active_net}">Network</a>
+            </div>
         </div>
-    </div>
-    '''
-    st.markdown(nav_html, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
     
-    # Search and Filter in columns
-    _, col_search, col_filter = st.columns([6, 3, 1])
-    
-    with col_search:
+    with c_search:
         search_query = st.text_input("Search", placeholder="🔍 Search CVE...", key="nav_search", label_visibility="collapsed")
         if search_query:
             st.session_state['search_query'] = search_query
         elif 'search_query' in st.session_state and not search_query:
             st.session_state['search_query'] = ""
-    
-    with col_filter:
+            
+    with c_filter:
+        # Align button with search bar
+        st.markdown('<div style="height: 2px"></div>', unsafe_allow_html=True)
         filter_icon = "▾" if st.session_state.get('show_filters', True) else "▸"
-        if st.button(f"{filter_icon} Filters", key="nav_toggle_filters", type="tertiary"):
+        if st.button(f"{filter_icon} Filters", key="nav_toggle_filters", use_container_width=True, type="tertiary"):
             st.session_state.show_filters = not st.session_state.get('show_filters', True)
             st.rerun()
 
