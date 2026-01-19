@@ -1115,12 +1115,15 @@ def load_and_process(vid):
     s = get_storage()
     
     # Update KEV status for all CVEs in database
-    kev_checker = get_kev_checker()
-    kev_cve_ids = kev_checker.get_all_kev_cves()
-    if kev_cve_ids:
-        updated_count = s.update_kev_status(kev_cve_ids)
-        if updated_count > 0:
-            st.toast(f"🚨 {updated_count} Known Exploited Vulnerabilities detected", icon="⚠️")
+    try:
+        kev_checker = get_kev_checker()
+        kev_cve_ids = kev_checker.get_all_kev_cves()
+        if kev_cve_ids and hasattr(s, 'update_kev_status'):
+            updated_count = s.update_kev_status(kev_cve_ids)
+            if updated_count > 0:
+                st.toast(f"🚨 {updated_count} Known Exploited Vulnerabilities detected", icon="⚠️")
+    except Exception as e:
+        print(f"KEV check error: {e}")
     
     cves = s.get_cves_by_vendor(vid)
     prods = s.con.execute("SELECT * FROM products WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
