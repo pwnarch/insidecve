@@ -1,9 +1,16 @@
+[client]
+showSidebarNavigation = true
+
 [theme]
 primaryColor="#8B5CF6"
 backgroundColor="#0F0F0F"
 secondaryBackgroundColor="#1A1A1A"
 textColor="#FAFAFA"
 font="sans serif"
+
+[theme.sidebar]
+backgroundColor="#0A0A0A"
+textColor="#E5E5E5"
 
 [server]
 headless = true

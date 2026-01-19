@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from src.storage import Storage
 from src.vendor_scraper import VendorScraper, get_cached_vendors
 from src.cvedetails_fetcher import CVEDetailsFetcher
+from src.graph_visualizer import build_network_graph
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -1072,6 +1073,9 @@ with st.sidebar:
         if st.button("🔬 CWE Analysis", use_container_width=True, type="tertiary" if st.query_params.get("page") != "cwe" else "secondary"):
             st.query_params["page"] = "cwe"
             st.rerun()
+        if st.button("🕸️ Network Analysis", use_container_width=True, type="tertiary" if st.query_params.get("page") != "network" else "secondary"):
+            st.query_params["page"] = "network"
+            st.rerun()
     
     st.divider()
     st.markdown("[GitHub Repo](https://github.com/pwnarch/insidecve)")
@@ -1185,6 +1189,29 @@ if not fdf.empty:
 # --- CHECK CWE PAGE ROUTING ---
 if st.query_params.get("page") == "cwe":
     render_cwe_analysis(fdf, df_cwes, selected_vendor_name)
+    st.stop()
+
+# --- CHECK NETWORK GRAPH ROUTING ---
+if st.query_params.get("page") == "network":
+    st.title("Attack Surface Graph")
+    st.caption(f"VISUALIZING VULNERABILITY BLAST RADIUS FOR {selected_vendor_name}")
+    
+    # Legend / Instructions
+    st.markdown("""
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; font-size: 0.8rem; color: #A3A3A3;">
+        <span>⚪ Vendor</span>
+        <span>🟣 Product (Size = Risk)</span>
+        <span>🔴 Critical CVE</span>
+        <span>🟠 High CVE</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Calculating force-directed layout..."):
+        # Use filtered data (fdf) so graph respects sidebar filters!
+        fig = build_network_graph(fdf, df_products, selected_vendor_name)
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+    
+    st.info("💡 Interaction: Zoom in to explore clusters. Hover over nodes for details.")
     st.stop()
 
 # Header
