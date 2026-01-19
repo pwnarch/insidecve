@@ -19,6 +19,8 @@ from src.storage import Storage
 from src.vendor_scraper import VendorScraper, get_cached_vendors
 from src.cvedetails_fetcher import CVEDetailsFetcher
 from src.graph_visualizer import build_network_graph
+from src.kev_checker import get_kev_checker
+
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -362,6 +364,19 @@ def load_css():
             background: #14532D;
             color: #86EFAC;
         }
+        .badge-kev {
+            background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+            color: #FFFFFF;
+            border: 1px solid #FCA5A5;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+            animation: pulse-kev 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-kev {
+            0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(220, 38, 38, 0.6); }
+        }
+
 
         /* ══════════════════════════════════════════════════════════════
            DETAIL PAGE HEADER
@@ -1098,6 +1113,15 @@ current_vendor_id = fetched_vendors_df[fetched_vendors_df['vendor_name'] == sele
 @st.cache_data
 def load_and_process(vid):
     s = get_storage()
+    
+    # Update KEV status for all CVEs in database
+    kev_checker = get_kev_checker()
+    kev_cve_ids = kev_checker.get_all_kev_cves()
+    if kev_cve_ids:
+        updated_count = s.update_kev_status(kev_cve_ids)
+        if updated_count > 0:
+            st.toast(f"🚨 {updated_count} Known Exploited Vulnerabilities detected", icon="⚠️")
+    
     cves = s.get_cves_by_vendor(vid)
     prods = s.con.execute("SELECT * FROM products WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
     cwes = s.con.execute("SELECT * FROM weaknesses WHERE cve_id IN (SELECT cve_id FROM cves WHERE vendor_id = ?)", (vid,)).fetchdf()
@@ -1222,23 +1246,27 @@ st.write("")
 
 # KPIs
 st.write("")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     render_metric("Total CVEs", len(fdf), "Selected range", "metric-card-accent")
 with col2:
+    kev_count = len(fdf[fdf.get('is_kev', False) == True]) if 'is_kev' in fdf.columns else 0
+    render_metric("🚨 KEV", kev_count, "Actively exploited", "metric-card-critical")
+with col3:
     crit = len(fdf[fdf['cvss_v31_severity'].isin(['CRITICAL', 'HIGH'])])
     pct = (crit/len(fdf)*100) if len(fdf) > 0 else 0
     render_metric("Critical / High", crit, f"{pct:.0f}% of selected", "metric-card-critical")
-with col3:
+with col4:
     if not fdf.empty:
         avg = fdf['cvss_v31_base_score'].mean()
         render_metric("Avg Score", f"{avg:.1f}", "CVSS v3.1", "metric-card-warning")
     else:
         render_metric("Avg Score", "0.0", "No data", "metric-card-warning")
-with col4:
+with col5:
     filtered_cve_ids = fdf['cve_id'].unique()
     cnt = df_products[df_products['cve_id'].isin(filtered_cve_ids)]['product'].nunique()
     render_metric("Products", cnt, "Affected", "metric-card-success")
+
 
 # CHARTS
 st.write("")
@@ -1349,12 +1377,17 @@ csv = fdf.to_csv(index=False).encode('utf-8')
 st.download_button("Download CSV", csv, "cve_data.csv", "text/csv")
 
 # Custom Table
-cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'description_en', 'vuln_type', 'CWE_LINK', 'owasp']
+cols = ['cve_id', 'published_date', 'cvss_v31_severity', 'cvss_v31_base_score', 'is_kev', 'description_en', 'vuln_type', 'CWE_LINK', 'owasp']
 # Prepare view dataframe
 view_fdf = fdf.copy()
 view_fdf['LINK'] = view_fdf['cve_id'].apply(lambda x: f"?cve={x}")
 view_fdf['cve_id'] = view_fdf['cve_id'].apply(lambda x: f"?cve={x}")
 view_fdf['CWE_LINK'] = view_fdf['cwe_ids'].apply(lambda x: f"?page=cwe&id={x.split(',')[0].strip()}" if x else None)
+# Add KEV emoji indicator
+if 'is_kev' in view_fdf.columns:
+    view_fdf['is_kev'] = view_fdf['is_kev'].apply(lambda x: "🚨" if x else "")
+else:
+    view_fdf['is_kev'] = ""
 
 st.dataframe(
     view_fdf[['LINK'] + cols].sort_values('published_date', ascending=False),
@@ -1365,6 +1398,7 @@ st.dataframe(
         "published_date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
         "cvss_v31_severity": "Severity",
         "cvss_v31_base_score": st.column_config.NumberColumn("Score", format="%.1f"),
+        "is_kev": st.column_config.TextColumn("KEV", width=50, help="Known Exploited Vulnerability"),
         "description_en": st.column_config.TextColumn("Description", width="large"),
         "vuln_type": "Type",
         "CWE_LINK": st.column_config.LinkColumn("CWE", display_text=r"id=([^&]*)"),
@@ -1373,4 +1407,5 @@ st.dataframe(
     height=800,
     hide_index=True
 )
+
 

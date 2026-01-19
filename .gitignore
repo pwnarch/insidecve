@@ -12,6 +12,7 @@ cache/
 solarwinds_cves.duckdb
 *.duckdb.wal
 *.parquet
+.kev_cache.json
 # Keep cve_dashboard.duckdb for deployment!
 
 # Logs

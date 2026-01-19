@@ -36,7 +36,8 @@ class Storage:
                 cvss_v31_vector VARCHAR,
                 cvss_v4_base_score DOUBLE,
                 cvss_v4_severity VARCHAR,
-                cvss_v4_vector VARCHAR
+                cvss_v4_vector VARCHAR,
+                is_kev BOOLEAN DEFAULT FALSE
             )
         """)
         
@@ -80,7 +81,7 @@ class Storage:
             LEFT JOIN products p ON c.cve_id = p.cve_id
             GROUP BY c.cve_id, c.vendor_id, c.published_date, c.last_modified_date, c.description_en,
                      c.source_flags, c.cvss_v31_base_score, c.cvss_v31_severity, c.cvss_v31_vector,
-                     c.cvss_v4_base_score, c.cvss_v4_severity, c.cvss_v4_vector
+                     c.cvss_v4_base_score, c.cvss_v4_severity, c.cvss_v4_vector, c.is_kev
         """)
 
     # --- Vendor Metadata Methods ---
@@ -123,7 +124,7 @@ class Storage:
     def save_cve(self, record, vendor_id=None):
         # 1. Upsert CVE
         self.con.execute("""
-            INSERT OR REPLACE INTO cves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO cves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             record["cve_id"],
             vendor_id or record.get("vendor_id"),
@@ -136,7 +137,8 @@ class Storage:
             record["cvss_v31_vector"],
             record["cvss_v4_base_score"],
             record["cvss_v4_severity"],
-            record["cvss_v4_vector"]
+            record["cvss_v4_vector"],
+            record.get("is_kev", False)
         ))
 
         cve_id = record["cve_id"]
@@ -182,6 +184,24 @@ class Storage:
             INSERT INTO products (cve_id, raw_cpe, vendor, product, version)
             VALUES (?, ?, ?, ?, ?)
         """, (cve_id, "", vendor_name, product_name, "*"))
+    
+    def update_kev_status(self, kev_cve_ids: set):
+        """Update is_kev flag for CVEs in the KEV catalog."""
+        if not kev_cve_ids:
+            return 0
+        
+        # Build placeholders for IN clause
+        placeholders = ','.join(['?' for _ in kev_cve_ids])
+        query = f"UPDATE cves SET is_kev = TRUE WHERE cve_id IN ({placeholders})"
+        self.con.execute(query, list(kev_cve_ids))
+        
+        # Return count of updated rows
+        result = self.con.execute(
+            f"SELECT COUNT(*) FROM cves WHERE is_kev = TRUE AND cve_id IN ({placeholders})",
+            list(kev_cve_ids)
+        ).fetchone()
+        return result[0] if result else 0
+
 
     def export_parquet(self, filepath="cve_dashboard.parquet", vendor_id=None):
         if vendor_id:
