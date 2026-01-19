@@ -47,10 +47,10 @@ def build_network_graph(df_cves, df_products, vendor_name):
         cve_nodes = cve_nodes.sort_values('cvss_v31_base_score', ascending=False).head(150)
     
     sev_colors = {
-        'CRITICAL': '#DC2626', 
-        'HIGH': '#EA580C', 
-        'MEDIUM': '#D97706', 
-        'LOW': '#059669', 
+        'CRITICAL': '#DC2626',   # 🔴 Red
+        'HIGH': '#EA580C',       # 🟠 Orange
+        'MEDIUM': '#EAB308',     # 🟡 Yellow
+        'LOW': '#22C55E',        # 🟢 Green
         'UNKNOWN': '#9CA3AF'
     }
     

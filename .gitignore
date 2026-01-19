@@ -12,7 +12,7 @@ cache/
 solarwinds_cves.duckdb
 *.duckdb.wal
 *.parquet
-.kev_cache.json
+# .kev_cache.json is now tracked in git (KEV database)
 # Keep cve_dashboard.duckdb for deployment!
 
 # Logs

@@ -48,10 +48,22 @@ def load_css():
             background-color: #0A0A0A;
         }
         
-        /* Hide Streamlit Elements */
+        /* Hide Streamlit Elements - but keep sidebar toggle */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header {visibility: hidden;}
+        header[data-testid="stHeader"] {
+            background: transparent !important;
+        }
+        
+        /* Show sidebar collapse button */
+        button[data-testid="stBaseButton-headerNoPadding"] {
+            visibility: visible !important;
+        }
+        
+        [data-testid="collapsedControl"] {
+            display: flex !important;
+            visibility: visible !important;
+        }
         
         /* Main Container */
         .main {
@@ -59,8 +71,8 @@ def load_css():
         }
         
         .main .block-container {
-            padding: 3rem 4rem;
-            max-width: 1400px;
+            padding: 1rem 3rem 3rem 3rem;
+            max-width: 100%;
         }
         
         /* Premium Typography */
@@ -92,6 +104,145 @@ def load_css():
         /* Subheader Styling */
         .stSubheader {
             color: #737373 !important;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           TOP NAVIGATION BAR - Glassmorphic
+        ══════════════════════════════════════════════════════════════ */
+        .top-nav-container {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid #1F1F1F;
+            margin: -1rem -3rem 1rem -3rem;
+            padding: 0.5rem 3rem;
+        }
+        
+        /* Logo Styling */
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 40px;
+        }
+        
+        .logo-icon {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+        }
+        
+        /* Search input in nav */
+        .top-nav-container .stTextInput input {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid #333 !important;
+            border-radius: 8px !important;
+            color: #E5E5E5 !important;
+            font-size: 0.875rem !important;
+            height: 38px !important;
+            padding: 0 12px !important;
+        }
+        
+        .top-nav-container .stTextInput input:focus {
+            border-color: #8B5CF6 !important;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+        }
+        
+        .top-nav-container .stTextInput input::placeholder {
+            color: #666 !important;
+        }
+        
+        .top-nav-container .stButton > button {
+            background: transparent !important;
+            border: none !important;
+            border-bottom: 2px solid transparent !important;
+            border-radius: 0 !important;
+            color: #737373 !important;
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.02em !important;
+            padding: 0.5rem 0.75rem !important;
+            height: 40px !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .top-nav-container .stButton > button:hover {
+            color: #E5E5E5 !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border-bottom-color: transparent !important;
+        }
+        
+        .top-nav-container .stButton > button[kind="secondary"] {
+            color: #8B5CF6 !important;
+            background: rgba(139, 92, 246, 0.05) !important;
+            border-bottom-color: #8B5CF6 !important;
+        }
+        
+        .top-nav-container [data-testid="column"] {
+            padding: 0 4px !important;
+        }
+        
+        .top-nav-container [data-testid="column"]:first-child {
+            padding-left: 0 !important;
+        }
+        
+        /* Filter toggle button specific styling */
+        .top-nav-container [data-testid="column"]:last-child .stButton > button {
+            background: rgba(139, 92, 246, 0.1) !important;
+            border: 1px solid #8B5CF6 !important;
+            border-radius: 8px !important;
+            color: #8B5CF6 !important;
+            font-size: 0.8125rem !important;
+            padding: 0.5rem 1rem !important;
+            height: 38px !important;
+        }
+        
+        .top-nav-container [data-testid="column"]:last-child .stButton > button:hover {
+            background: rgba(139, 92, 246, 0.2) !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2) !important;
+        }
+        
+        /* ══════════════════════════════════════════════════════════════
+           FILTER BAR - Collapsible Horizontal Layout
+        ══════════════════════════════════════════════════════════════ */
+        .filter-bar {
+            background: linear-gradient(145deg, #0F0F0F 0%, #0A0A0A 100%);
+            border-bottom: 1px solid #1F1F1F;
+            padding: 12px 3rem;
+            margin: -1rem -3rem 1rem -3rem;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+        
+        /* Make Streamlit columns behave horizontally */
+        [data-testid="column"] {
+            padding: 0 8px !important;
+        }
+        
+        [data-testid="column"]:first-child {
+            padding-left: 0 !important;
+        }
+        
+        [data-testid="column"]:last-child {
+            padding-right: 0 !important;
         }
 
         /* ══════════════════════════════════════════════════════════════
@@ -451,10 +602,49 @@ def render_metric(label, value, sub_text=None, card_class="metric-card"):
         <div class="metric-label">{label}</div>
         <div class="metric-value">{value}</div>
         <div class="metric-sub">
-            {sub_text if sub_text else '&nbsp;'}
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+def render_top_nav():
+    """Render top navigation bar with logo, page tabs, and search."""
+    current_page = st.query_params.get("page", "")
+    
+    # Build navigation HTML with clickable links
+    active_dash = "nav-link-active" if current_page == "" else ""
+    active_cwe = "nav-link-active" if current_page == "cwe" else ""
+    active_net = "nav-link-active" if current_page == "network" else ""
+    
+    nav_html = f'''
+    <div class="top-nav-bar">
+        <div class="nav-left">
+            <div class="nav-logo">
+                <span class="logo-icon">◈</span>
+                <span class="logo-text">InsideCVE</span>
+            </div>
+            <a href="/" class="nav-link {active_dash}">Dashboard</a>
+            <a href="?page=cwe" class="nav-link {active_cwe}">CWE</a>
+            <a href="?page=network" class="nav-link {active_net}">Network</a>
+        </div>
+    </div>
+    '''
+    st.markdown(nav_html, unsafe_allow_html=True)
+    
+    # Search and Filter in columns
+    _, col_search, col_filter = st.columns([6, 3, 1])
+    
+    with col_search:
+        search_query = st.text_input("Search", placeholder="🔍 Search CVE...", key="nav_search", label_visibility="collapsed")
+        if search_query:
+            st.session_state['search_query'] = search_query
+        elif 'search_query' in st.session_state and not search_query:
+            st.session_state['search_query'] = ""
+    
+    with col_filter:
+        filter_icon = "▾" if st.session_state.get('show_filters', True) else "▸"
+        if st.button(f"{filter_icon} Filters", key="nav_toggle_filters", type="tertiary"):
+            st.session_state.show_filters = not st.session_state.get('show_filters', True)
+            st.rerun()
 
 # --- Session State & Database ---
 if 'building' not in st.session_state: st.session_state.building = False
@@ -1038,8 +1228,20 @@ def render_cve_detail(cve_id):
         st.code(cve.get('cvss_v31_vector') or "N/A", language=None)
         
         st.markdown("**References**")
-        with st.expander("View Links"):
-             for r in ref_list: st.markdown(f"- [Link]({r})")
+        # Always show NVD link first
+        nvd_url = f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+        st.markdown(f"🔗 [**NVD - {cve_id}**]({nvd_url})")
+        
+        if ref_list:
+            with st.expander(f"View {len(ref_list)} more links"):
+                for r in ref_list:
+                    # Show domain name for cleaner display
+                    try:
+                        from urllib.parse import urlparse
+                        domain = urlparse(r).netloc
+                        st.markdown(f"- [{domain}]({r})")
+                    except:
+                        st.markdown(f"- [Link]({r})")
         st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1078,21 +1280,6 @@ with st.sidebar:
             VendorScraper(headless=True).get_all_vendors(force_refresh=True)
             st.rerun()
     st.divider()
-    
-    # Navigation Links
-    if selected_vendor_name:
-        st.caption("PAGES")
-        if st.button("🏠 Dashboard", use_container_width=True, type="tertiary" if "page" not in st.query_params else "secondary"):
-            st.query_params.clear()
-            st.rerun()
-        if st.button("🔬 CWE Analysis", use_container_width=True, type="tertiary" if st.query_params.get("page") != "cwe" else "secondary"):
-            st.query_params["page"] = "cwe"
-            st.rerun()
-        if st.button("🕸️ Network Analysis", use_container_width=True, type="tertiary" if st.query_params.get("page") != "network" else "secondary"):
-            st.query_params["page"] = "network"
-            st.rerun()
-    
-    st.divider()
     st.markdown("[GitHub Repo](https://github.com/pwnarch/insidecve)")
 
 # --- CHECK ROUTING ---
@@ -1114,14 +1301,13 @@ current_vendor_id = fetched_vendors_df[fetched_vendors_df['vendor_name'] == sele
 def load_and_process(vid):
     s = get_storage()
     
+    kev_count = 0
     # Update KEV status for all CVEs in database
     try:
         kev_checker = get_kev_checker()
         kev_cve_ids = kev_checker.get_all_kev_cves()
         if kev_cve_ids and hasattr(s, 'update_kev_status'):
-            updated_count = s.update_kev_status(kev_cve_ids)
-            if updated_count > 0:
-                st.toast(f"🚨 {updated_count} Known Exploited Vulnerabilities detected", icon="⚠️")
+            kev_count = s.update_kev_status(kev_cve_ids)
     except Exception as e:
         print(f"KEV check error: {e}")
     
@@ -1142,55 +1328,89 @@ def load_and_process(vid):
         cves['vuln_type'] = cves.apply(lambda r: classify_vuln(r, cwes), axis=1)
         cves['owasp'] = cves['vuln_type'].apply(get_owasp_category)
         
-    return cves, prods, cwes
+    return cves, prods, cwes, kev_count
 
 try:
-    df_cves, df_products, df_cwes = load_and_process(current_vendor_id)
+    df_cves, df_products, df_cwes, kev_count = load_and_process(current_vendor_id)
+    
+    # Display KEV notification outside of cached function
+    if kev_count > 0:
+        st.toast(f"🚨 {kev_count} Known Exploited Vulnerabilities detected", icon="⚠️")
 except Exception as e:
     st.error(f"Error: {e}")
     st.stop()
 
-# --- FILTERS IN SIDEBAR ---
-with st.sidebar:
-    st.divider()
-    st.subheader("Filters & Search")
+# Initialize filter visibility state
+if 'show_filters' not in st.session_state:
+    st.session_state.show_filters = True
+if 'search_query' not in st.session_state:
+    st.session_state.search_query = ""
+
+# Render Top Navigation
+render_top_nav()
+
+# --- HORIZONTAL FILTER BAR ---
+if st.session_state.show_filters:
+    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
+    
+    # Create columns for horizontal filter layout
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     # Product search
     all_products = sorted(df_products['product'].dropna().unique())
-    sel_products_top = st.multiselect("Products", all_products, default=[], key="product_search_top", placeholder="Filter by product...")
-    
-    st.write("")
+    with col1:
+        sel_products_top = st.multiselect("Products", all_products, default=[], key="product_search_top", placeholder="Filter by product...")
     
     # Date Range
     min_d = df_cves['published_date'].min()
     max_d = df_cves['published_date'].max()
     if pd.isnull(min_d): min_d = datetime(2000,1,1)
     if pd.isnull(max_d): max_d = datetime.now()
-    date_range = st.date_input("Date Range", [min_d, max_d])
+    with col2:
+        date_range = st.date_input("Date Range", [min_d, max_d], key="filter_date")
     
     # Severity
     all_sev = sorted(df_cves['cvss_v31_severity'].dropna().unique())
-    sel_sev = st.multiselect("Severity", all_sev, default=[], key="filter_severity")
+    with col3:
+        sel_sev = st.multiselect("Severity", all_sev, default=[], key="filter_severity")
     
     # Type
     all_types = sorted(df_cves['vuln_type'].unique())
-    sel_types = st.multiselect("Vulnerability Type", all_types, default=[], key="filter_type")
+    with col4:
+        sel_types = st.multiselect("Vuln Type", all_types, default=[], key="filter_type")
     
     # CWE
     all_cwes = sorted(df_cwes['cwe_id'].unique())
-    sel_cwes = st.multiselect("CWE ID", all_cwes, default=[], format_func=lambda x: f"{x} ({get_cwe_name(x)})", key="filter_cwe")
-    
-    st.divider()
+    with col5:
+        sel_cwes = st.multiselect("CWE", all_cwes, default=[], format_func=lambda x: f"{x}", key="filter_cwe")
     
     # Sort option
     sort_options = {
-        "Published Date (Newest First)": ("published_date", False),
-        "Published Date (Oldest First)": ("published_date", True),
-        "CVSS Score (Highest First)": ("cvss_v31_base_score", False),
-        "CVSS Score (Lowest First)": ("cvss_v31_base_score", True),
+        "Date ↓": ("published_date", False),
+        "Date ↑": ("published_date", True),
+        "CVSS ↓": ("cvss_v31_base_score", False),
+        "CVSS ↑": ("cvss_v31_base_score", True),
     }
-    selected_sort_option = st.selectbox("Sort By", list(sort_options.keys()))
-    sort_column, sort_ascending = sort_options[selected_sort_option]
+    with col6:
+        selected_sort_option = st.selectbox("Sort By", list(sort_options.keys()), key="filter_sort")
+        sort_column, sort_ascending = sort_options[selected_sort_option]
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+else:
+    # Hidden filter defaults when collapsed
+    sel_products_top = []
+    all_products = sorted(df_products['product'].dropna().unique())
+    
+    min_d = df_cves['published_date'].min()
+    max_d = df_cves['published_date'].max()
+    if pd.isnull(min_d): min_d = datetime(2000,1,1)
+    if pd.isnull(max_d): max_d = datetime.now()
+    date_range = [min_d, max_d]
+    
+    sel_sev = []
+    sel_types = []
+    sel_cwes = []
+    sort_column, sort_ascending = ("published_date", False)
 
 # Apply Filters
 if len(date_range) == 2:
@@ -1209,6 +1429,17 @@ if sel_cwes:
 if sel_products_top:
     matching_cve_ids = df_products[df_products['product'].isin(sel_products_top)]['cve_id'].unique()
     mask &= df_cves['cve_id'].isin(matching_cve_ids)
+
+# Apply Search Query from top nav
+search_query = st.session_state.get('search_query', '')
+if search_query:
+    search_lower = search_query.lower()
+    search_mask = (
+        df_cves['cve_id'].str.lower().str.contains(search_lower, na=False) |
+        df_cves['description_en'].str.lower().str.contains(search_lower, na=False)
+    )
+    mask &= search_mask
+
 fdf = df_cves[mask]
 if not fdf.empty:
     fdf = fdf.sort_values(sort_column, ascending=sort_ascending)
@@ -1225,11 +1456,13 @@ if st.query_params.get("page") == "network":
     
     # Legend / Instructions
     st.markdown("""
-    <div style="display: flex; gap: 20px; margin-bottom: 20px; font-size: 0.8rem; color: #A3A3A3;">
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; font-size: 0.8rem; color: #A3A3A3;">
         <span>⚪ Vendor</span>
         <span>🟣 Product (Size = Risk)</span>
         <span>🔴 Critical CVE</span>
         <span>🟠 High CVE</span>
+        <span>🟡 Medium CVE</span>
+        <span>🟢 Low CVE</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1362,13 +1595,38 @@ with c5:
 with c6:
     with st.container(border=True):
         st.caption("VULN TYPE HEATMAP (YEARLY)")
-        # Prepare Heapmap Data
+        # Prepare Heatmap Data - Per Year
         df_hm = fdf.copy()
         df_hm['year'] = df_hm['published_date'].dt.year
-        hm_data = df_hm.groupby(['vuln_type', 'year']).size().reset_index(name='count')
-        if not hm_data.empty:
-            fig = px.density_heatmap(hm_data, x='year', y='vuln_type', z='count', color_continuous_scale='Viridis')
-            fig.update_layout(height=250, margin=dict(l=0,r=0,t=10,b=0), xaxis_title="", yaxis_title="")
+        
+        # Create pivot table for heatmap (vuln_type x year)
+        hm_pivot = df_hm.pivot_table(
+            index='vuln_type', 
+            columns='year', 
+            values='cve_id', 
+            aggfunc='count', 
+            fill_value=0
+        )
+        
+        if not hm_pivot.empty and len(hm_pivot.columns) > 0:
+            # Create heatmap using imshow for proper year labels
+            fig = px.imshow(
+                hm_pivot.values,
+                x=[str(int(y)) for y in hm_pivot.columns],  # Year labels
+                y=hm_pivot.index.tolist(),  # Vuln type labels
+                color_continuous_scale='Viridis',
+                aspect='auto',
+                labels=dict(x="Year", y="Vulnerability Type", color="Count")
+            )
+            fig.update_layout(
+                height=280, 
+                margin=dict(l=0, r=0, t=10, b=0),
+                xaxis_title="", 
+                yaxis_title="",
+                xaxis=dict(tickmode='linear', dtick=1),
+                coloraxis_colorbar=dict(title="CVEs", thickness=15)
+            )
+            fig.update_xaxes(tickangle=0)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Not enough data for heatmap")
