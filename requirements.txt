@@ -7,3 +7,4 @@ pyarrow
 plotly
 beautifulsoup4
 pytest
+networkx
